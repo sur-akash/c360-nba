@@ -1,0 +1,12 @@
+AGENT|Hello, main Aarohan Bank se Priya bol rahi hoon. Kya main Suresh ji se baat kar rahi hoon?
+CUSTOMER|Haan, Suresh bol raha hoon. Boliye.
+AGENT|Sir, aapke personal loan ke do EMI pending hain. Total forty one thousand two hundred rupees, aur account fifty two days overdue hai.
+CUSTOMER|Haan mujhe pata hai. Dekhiye, meri situation kharab chal rahi hai. Mera job chala gaya March mein, company ne downsizing kiya.
+AGENT|Sir, main samajh rahi hoon, lekin payment to karna hoga. Aap kab tak kar sakte hain?
+CUSTOMER|Main mana nahi kar raha hoon. Main definitely paise doonga. Bas mujhe thoda time chahiye. Do mahine.
+AGENT|Do mahine bahut zyada hai sir. Account already fifty two days overdue hai.
+CUSTOMER|Toh main kya karoon? Mere paas income nahi hai abhi. Upar se mummy ka hospital ka bill bhi aaya hai, Fortis mein admit thi woh.
+AGENT|Sir, ek option hai. Agar aap aadha amount, matlab twenty thousand, teen hafte mein de sakein, to hum late fee waive kar sakte hain.
+CUSTOMER|Teen hafte. Theek hai, main koshish karoonga. Kuch arrange karta hoon. Par please mujhe roz roz call na kijiye, main pareshan ho jaata hoon.
+AGENT|Theek hai sir. Main note kar deti hoon. Main aapko twelve tareekh ko call karoongi follow up ke liye.
+CUSTOMER|Haan, bilkul. Thank you.

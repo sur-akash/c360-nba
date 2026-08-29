@@ -230,14 +230,16 @@ sql/
   01_schemas.sql              RAW / CURATED / GOLD / APP + stages + region guard
   02_schema_raw.sql           RAW tables + seeded RNG functions    (applied)
   03_seed_raw.sql             synthetic silo generation            (applied)
-  04_raw_calls.sql            RAW.CALL_RECORDING — bulk notes + audio metadata
+  04_seed_interactions.sql    RAW.INTERACTION — 1,200 AI-generated artefacts  (applied)
+  05_curated_signals.sql      CURATED.INTERACTION_SIGNALS — sentiment, intent,
+                              flags, entities, summary + confidence            (applied)
+  06_audio_demo.sql           RAW.AUDIO_STAGE + AI_TRANSCRIBE over 3 fixtures  (applied)
+  07_curated_rollup.sql       CURATED.CUSTOMER_INTERACTION_ROLLUP              (applied)
   10_curated_party.sql        CURATED.DIM_PARTY — identity resolution
   11_curated_contract.sql     CURATED.CONTRACT — policy + loan + card, one grain
   12_curated_payment.sql      CURATED.PAYMENT_FACT + SPEND_FACT — arrears, spend
   13_curated_interaction.sql  CURATED.INTERACTION — tickets + calls, one grain
-  14_curated_transcribe.sql   CURATED.CALL_TRANSCRIPT — AI_TRANSCRIBE + bulk text
-  15_curated_enrich.sql       CURATED.INTERACTION_ENRICHED — sentiment, intent, entities
-  19_search_service.sql       APP.INTERACTION_SEARCH — retrieval over 14 and 15
+  19_search_service.sql       APP.INTERACTION_SEARCH — retrieval over 04 and 05
   20_gold_spine.sql           GOLD.CUSTOMER_360, GOLD.CUSTOMER_FEATURES
   21_gold_actions.sql         GOLD.ACTION_CATALOGUE
   22_gold_eligibility.sql     GOLD.ELIGIBILITY_TRACE, GOLD.DO_NOT_CONTACT
@@ -274,6 +276,20 @@ consequences worth noting, since none is obvious from the numbers alone:
   splitting them across three files would mean three files that cannot be run
   independently anyway. Calls stay separate in `04` because the audio path is
   genuinely independent — see D1.
+
+- **The unstructured layer landed at `04`–`07`, not at `04`/`13`/`14`/`15`.** The
+  original numbering put text generation at `04_raw_calls.sql` and enrichment in
+  the `CURATED` block at `14`/`15`. What was actually built is
+  `04_seed_interactions.sql` → `05_curated_signals.sql` → `06_audio_demo.sql` →
+  `07_curated_rollup.sql`, kept contiguous because they form one dependency chain
+  that has to be run in order and re-run as a unit while the corpus is being
+  tuned. `14_curated_transcribe.sql` and `15_curated_enrich.sql` are therefore
+  **gone**, their work absorbed into `05` and `06`; `CURATED.CALL_TRANSCRIPT` and
+  `CURATED.INTERACTION_ENRICHED` do not exist as separate objects because text and
+  transcribed audio deliberately share the single `RAW.INTERACTION` grain rather
+  than being unioned later. `13_curated_interaction.sql` still stands: it unifies
+  servicing tickets with interactions, which `07` currently bridges by reading
+  `RAW.SERVICE_TICKET` directly — flagged in that file's header.
 
 ---
 
@@ -388,6 +404,72 @@ or materialized view is used.
 is deprecated; it should be `AI_SENTIMENT`. Cosmetic but worth fixing since the
 bootstrap is the first thing a judge reads.
 
+### R8. `AI_COUNT_TOKENS` undercounts by ~1.85×, so it is a sizing tool and not a gate
+
+R3 proposed `AI_COUNT_TOKENS` as the cost gate because the usage views lag. Measured against
+real billing on the M1 generation run, the projection was **970 input tokens per thread
+against an actual 1,793** — a 1.85× undercount. Two independent causes, both structural
+rather than incidental:
+
+- **The `response_format` schema bills as input but is invisible to the counter.** Every
+  structured-output call re-sends the JSON schema, and `AI_COUNT_TOKENS` has no argument
+  through which the `AI_COMPLETE` schema can be supplied. Snowflake's own documentation
+  notes structured output on Claude "can bill materially more tokens than estimated".
+- **The counter rejects the `claude-4-x` families entirely**, so sizing has to be done with
+  a supported proxy tokenizer (`llama3.3-70b` here). Tokenizers differ, and the direction of
+  the error is not knowable in advance.
+
+It also counts input only, so for any generative call it is a floor rather than an estimate —
+on this workload output was 70% of the bill.
+
+**The gate that actually works is a measured pilot.** Run a small batch, read
+`SNOWFLAKE.ACCOUNT_USAGE.CORTEX_AI_FUNCTIONS_USAGE_HISTORY` — which lags ~5 minutes, not the
+hours R3 observed on the older `CORTEX_FUNCTIONS_USAGE_HISTORY` — and extrapolate from real
+credits. Its `METRICS` column carries input and output token counts separately, so a handful
+of batches with differing mixes is enough to solve for the per-model rate directly:
+
+```
+claude-haiku-4-5   0.6 credits / M input tokens
+                   3.0 credits / M output tokens
+```
+
+Derived from four billing rows and reproducing all four exactly. `AI_COUNT_TOKENS` keeps its
+place for *relative* sizing — comparing two prompt designs, spotting a runaway input — but
+no batch should be authorised on its absolute number. Reading this view requires the
+`coco_admin` (ACCOUNTADMIN) connection; `COCO_BUILDER` cannot see `ACCOUNT_USAGE` at all.
+
+**The measured-pilot method has its own failure mode, and it bit once.** The M1 enrichment
+projection came in at half the true cost because the pilot batch was run twice (once per
+`ENRICH_VERSION`) while the credits were summed over a time window containing only one of
+those runs — then divided by both runs' row count. Every per-function rate was consequently
+exactly 2× low, and the projected 5 credits became a measured 11.
+
+Two rules follow, and they are cheap to obey:
+
+- **Divide by the row count inside the measured window, not the row count you ran in total.**
+  Filter the usage view to specific `QUERY_ID`s rather than a time range, since one script
+  execution is one query per AI function and the row count per query is known exactly.
+- **Re-measure after the first real batch, not only before it.** A 25-row pilot and a 300-row
+  batch are different enough that the pilot rate should be treated as provisional. The 300-row
+  passes each cost ~1.07 credits for `AI_EXTRACT`, which settles the rate at 0.00357/row
+  against the pilot's apparent 0.00175.
+
+Also: a function reporting `0.000000` credits on a small pilot is a rounding artefact, not a
+free function. `AI_SENTIMENT` displayed zero over 25 rows and cost 0.96 credits over 1,200.
+
+**A credit ceiling covers the whole milestone, not one script inside it.** M3's 15-credit
+ceiling was stated while discussing corpus generation; generation came in at 2.33 and was
+reported as comfortably inside budget, after which enrichment — a different file, five AI
+functions per row — spent 11.2 more and took the milestone to 13.55 without anything pausing.
+The scoping gap, not the model, caused that. Enumerate every AI call across every file in a
+milestone before spending anything, carry a running total against the one number, and report
+it as spent/remaining at each gate. The general rule is recorded in `AGENTS.md` so it survives
+outside this document.
+
+Note the shape of the spend, which is not intuitive: **per-row enrichment cost 4.8× the
+generation of the corpus it read.** Milestone cost is dominated by whichever layer runs N AI
+calls per row, not by the layer that produced the rows.
+
 ---
 
 ## 9. Decisions taken
@@ -447,6 +529,92 @@ holder with no home cover is a `PROTECTION_CROSS_SELL`; a customer 45 days into 
 bucket on a personal loan is suppressed from every cross-sell regardless of how
 attractive their insurance propensity looks.
 
+### D5. The corpus is reproducible at the row level, not at the wording level
+
+`sql/03_seed_raw.sql` is bit-for-bit reproducible for a given `(SEED, run date)` pair —
+verified by `HASH_AGG` fingerprints across all eight generated tables, unchanged after
+re-running on a different warehouse size (`docs/DATA_SEGMENTS.md` §1). **`RAW.INTERACTION`
+does not inherit that property, and cannot.**
+
+Generation runs `AI_COMPLETE` at `temperature = 0.9`. This is a deliberate choice, not a
+default left unexamined: at `temperature = 0` the model collapses 1,200 artefacts into a
+handful of near-identical templates, and the downstream classifier in
+`05_curated_signals.sql` would score far better against a repetitive corpus than against a
+varied one. That would be a flattering benchmark rather than an informative one. Diversity
+in the corpus is worth more here than determinism of its prose.
+
+**Where the reproducibility boundary actually sits.** Everything up to the prompt is
+deterministic; only the prose is not:
+
+| Layer | Reproducible? | Mechanism |
+|---|---|---|
+| Which customers are in the corpus | **Yes, exactly** | `ROW_NUMBER()` over `RAW.RND('ixsel\|' \|\| id)`, sliced to fixed quotas |
+| How many artefacts each one gets | **Yes, exactly** | fixed high/low split per segment; 1,200 is a count, not an average |
+| Type, channel, direction, language, timestamp | **Yes, exactly** | `RAW.RND_PICK` / `RND_INT` / `RND_BOOL` keyed on `(customer, slot)` |
+| The prompt text | **Yes, exactly** | pure SQL over `RAW`, rebuilt by `CREATE OR REPLACE` |
+| **The artefact wording** | **No** | `AI_COMPLETE` at `temperature = 0.9` |
+
+So a rebuild from empty reproduces the same 594 customers, the same 1,200 slots, the same
+channel and language mix and the same dates — and different sentences inside them.
+
+**`RAW.INTERACTION_GEN_RAW` is the reproducibility boundary.** It is created
+`IF NOT EXISTS`, never `CREATE OR REPLACE`, and is filled by an anti-join on `PLAN_KEY`, so
+a thread that already has output is never regenerated. Committing to that table is
+therefore what freezes the wording. Two consequences worth stating plainly:
+
+- Re-running `04_seed_interactions.sql` any number of times is free and changes nothing.
+  Only `TRUNCATE`-ing `GEN_RAW`, or bumping `PROMPT_VERSION`, produces new prose — and the
+  version bump is the sanctioned way to do it, since the reconcile step discards the
+  superseded generation rather than letting two versions accumulate.
+- Anything that must hold across rebuilds has to be asserted against *structure*, not
+  against *strings*. `sql/90_verify.sql` and `evals/` therefore assert on row counts,
+  segment coverage, null rates and the leakage check — never on a body matching a literal.
+  The one text assertion that is safe is the negative one: no artefact may contain
+  `retention`, `churn`, `segment`, `at risk`, `vulnerable` or `propensity`, because that
+  holds for any wording.
+
+If exact prose reproducibility is ever needed — to bisect a scoring regression, say — the
+route is to commit `GEN_RAW` as a data fixture, not to lower the temperature and accept a
+degenerate corpus.
+
+### D6. `SENTIMENT_TREND` is load-bearing; the raw slope is diagnostic only
+
+`CURATED.CUSTOMER_INTERACTION_ROLLUP` carries both a bucketed sentiment trend and
+the regression slope it was derived from. **M4 and M5 rank on `SENTIMENT_TREND`.
+`SENTIMENT_SLOPE_PER_30D` must not appear in a ranking expression, a propensity
+term, or an eligibility predicate.**
+
+Two measured reasons, neither of which is a bug:
+
+- **Coverage.** A slope needs three sentiment readings. Only **136 of 596**
+  customers have them — the 2–3 artefact `RETENTION_SAVE` and
+  `COLLECTIONS_HARDSHIP` cohorts, which is exactly where the signal matters, but
+  still leaves 77% of contacted customers at `INSUFFICIENT_DATA`.
+- **Scale.** Those three readings typically sit inside a few weeks, so the fitted
+  line is steep almost regardless of the underlying change. Measured averages came
+  out at roughly **+1.4 and −0.65 points per 30 days on a scale spanning only
+  −1..+1**. The direction is reliable; the magnitude is an artefact of a short
+  baseline and would inflate any expected value multiplied by it.
+
+**The fix was priced and declined.** Regenerating the two high-signal cohorts at
+4+ artefacts each would give the slope a real baseline for about 2 credits at
+measured M1 rates. Rejected because the bucketed trend already carries the
+directional signal M4 needs, and on a $400 trial those credits are better spent on
+the `claude-opus-5` narrative in M6, where output quality is the thing being bought
+rather than a second decimal place on a coefficient.
+
+**How the constraint is enforced rather than remembered.** Both columns carry
+`COMMENT`s stating this, applied by `sql/07_curated_rollup.sql` on every run (a
+`CREATE TABLE AS` cannot carry column comments, so they are reapplied rather than
+declared once). The constraint is therefore visible in `DESCRIBE TABLE` and in the
+Snowsight column list, not only in a header comment somebody has to think to read.
+
+One consequence for M4 to handle explicitly: `INSUFFICIENT_DATA` means *unknown*,
+not *stable*. A customer with one angry interaction has no trend, and collapsing
+that to "stable" would read a deteriorating relationship as a calm one.
+
+---
+
 ---
 
 ## 10. Build milestones
@@ -459,7 +627,7 @@ Dependencies are strict: a milestone may not start until its predecessors are gr
 | **M1** | Synthetic silos — **done except calls** | `sql/02_schema_raw.sql` → `RAW` schema, 7 seeded RNG functions, 13 table DDLs. `sql/03_seed_raw.sql` → `CUSTOMER_SEGMENT_TRUTH`, `CUSTOMER`, `HOUSEHOLD`, `CONSENT`, `PRODUCT_CATALOG`, `POLICY`, `CLAIM`, `LOAN`, `CARD`, `TXN` (1.2M), `REPAYMENT`, `SERVICE_TICKET`, `CAMPAIGN_HISTORY`. Still to build: `sql/04_raw_calls.sql` → `RAW.CALL_RECORDING`. Ground truth is a **separate quarantined table**, not a `CUSTOMER` column, so the engine cannot use it as a feature; only `evals/` reads it. Seven planted segments validated at exactly their target counts with zero false positives — see `docs/DATA_SEGMENTS.md`. | M0 |
 | **M1a** | Audio fixtures | `data/audio/*.m4a` (~12, generated locally), staged to `RAW.AUDIO_STAGE` | M0 |
 | **M2** | Conform | `sql/10_curated_party.sql` → `CURATED.DIM_PARTY`; `sql/11_curated_contract.sql` → `CURATED.CONTRACT` (unifies `RAW.POLICY` + `RAW.LOAN` + `RAW.CARD`); `sql/12_curated_payment.sql` → `CURATED.PAYMENT_FACT` (DPD buckets, from `RAW.REPAYMENT`) and `CURATED.SPEND_FACT` (monthly spend, MCC mix, inbound lumpsums, from `RAW.TXN`); `sql/13_curated_interaction.sql` → `CURATED.INTERACTION` | M1 |
-| **M3** | AI enrichment | `sql/14_curated_transcribe.sql` → `CURATED.CALL_TRANSCRIPT` (`AI_TRANSCRIBE` over staged audio, unioned with bulk text); `sql/15_curated_enrich.sql` → `CURATED.INTERACTION_ENRICHED` (`AI_SENTIMENT`, `AI_CLASSIFY` intent, `AI_EXTRACT` entities on `claude-haiku-4-5`). `AI_COUNT_TOKENS` gate first. | M2, M1a |
+| **M3** | AI enrichment — **done** | `sql/04_seed_interactions.sql` → `RAW.INTERACTION`, 1,200 artefacts across 594 customers, conditioned on the planted segment and enforced not to name it (`RAW.HAS_SEGMENT_LEAK`). `sql/05_curated_signals.sql` → `CURATED.INTENT_TAXONOMY` (16 labels as data), `CURATED.AI_CONFIG` (the single tunable threshold), `CURATED.INTERACTION_SIGNALS` + `_GATED` — `AI_SENTIMENT` overall/aspect, `AI_CLASSIFY` intent, `AI_EXTRACT` entities with `scores => TRUE`, `AI_COMPLETE` structured output for six flags + 25-word summary, `AI_FILTER` as an independent churn cross-check. Five AI calls per row, not ten. `sql/06_audio_demo.sql` → `RAW.AUDIO_STAGE` + `AI_TRANSCRIBE`, which **settles the §7 untested claim**. `sql/07_curated_rollup.sql` → `CURATED.CUSTOMER_INTERACTION_ROLLUP`. Measured cost 13.55 credits; recall/precision against the hidden segment in `docs/DATA_SEGMENTS.md` §5b. | M2, M1a |
 | **M4** | Customer spine | `sql/20_gold_spine.sql` → `GOLD.CUSTOMER_360`, `GOLD.CUSTOMER_FEATURES` | M3 |
 | **M5** | Eligibility and EV | `sql/21_gold_actions.sql` → `GOLD.ACTION_CATALOGUE` (margin and eligibility thresholds come from `RAW.PRODUCT_CATALOG`); `sql/22_gold_eligibility.sql` → `GOLD.ELIGIBILITY_TRACE`, `GOLD.DO_NOT_CONTACT`; `sql/23_gold_ev.sql` → `GOLD.NBA_CANDIDATE`. **Deterministic SQL only, no AI.** | M4 |
 | **M6** | Reasons and evidence | `sql/24_gold_nba_ranked.sql` → `GOLD.NBA_RANKED`. `claude-opus-5` structured output on the demo slice, template elsewhere, `REASON_SOURCE` recorded. Optional `AI_REDACT` on prompt inputs per R1. | M5, M7 |

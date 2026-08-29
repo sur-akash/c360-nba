@@ -1,0 +1,12 @@
+AGENT|Good afternoon, you have reached Aarohan General. This is Deepak. How may I help you today?
+CUSTOMER|Yes, hello. I received my motor renewal notice and the premium has gone up to twenty two thousand four hundred. Last year I paid seventeen thousand two hundred. Can you explain this?
+AGENT|Let me pull up your policy. May I confirm your vehicle registration number please?
+CUSTOMER|It is D L zero one, A B, one two three four.
+AGENT|Thank you. Yes, I can see the renewal is due on the twenty first of September.
+CUSTOMER|So why has it increased by more than five thousand rupees? I have never made a single claim in nine years.
+AGENT|Sir, premium revisions consider the market value of the vehicle, and the general claims experience.
+CUSTOMER|That is not an answer. I have a quote from Bajaj Allianz for sixteen thousand eight hundred, for exactly the same cover. Why should I pay you twenty two thousand?
+AGENT|I understand. Let me place you on a brief hold while I check what options are available.
+CUSTOMER|Please be quick. I want to tell you plainly, if nothing changes before the renewal date I will move the policy to them.
+AGENT|Thank you for holding. I have escalated your case for a pricing review. Someone will contact you within two working days.
+CUSTOMER|Two days. Fine. But make sure somebody actually calls me this time.

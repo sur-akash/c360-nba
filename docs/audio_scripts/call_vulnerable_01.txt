@@ -1,0 +1,14 @@
+AGENT|Good morning, Aarohan Life, this is Kavita speaking. How may I help you?
+CUSTOMER|Hello. Hello? Yes. I am calling about my policy. I got a letter but I could not understand it properly.
+AGENT|Of course. May I have your policy number, or your date of birth?
+CUSTOMER|My date of birth is fourth of January, nineteen forty three. I am eighty three years old now.
+AGENT|Thank you. I can see your health policy here. The letter was about your premium payment date changing.
+CUSTOMER|Changing? So do I have to pay something now? I do not want any new policy, I already have enough.
+AGENT|No, nothing new. Only the date on which the payment is taken has moved to the fifth of the month.
+CUSTOMER|The fifth. Achha. So do I have to pay something now?
+AGENT|No sir, nothing to pay today. The amount is the same, only the date has changed.
+CUSTOMER|I see, I see. My grandson usually handles this on the phone for me, I cannot manage that app at all. So there is no new payment?
+AGENT|No new payment. Everything stays the same except the date.
+CUSTOMER|Right. And this letter, do I need to sign it and send it back? I am sorry, I am asking again.
+AGENT|Not at all. No signature needed. Would you like me to post you a simpler one page summary?
+CUSTOMER|Yes please. On paper. That would be much better for me.

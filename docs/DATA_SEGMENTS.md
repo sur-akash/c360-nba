@@ -370,6 +370,123 @@ vulnerability gate reads.
 
 ---
 
+## 5b. The unstructured corpus — `RAW.INTERACTION`
+
+`sql/04_seed_interactions.sql` generates **1,200 artefacts across 594 customers**
+with `AI_COMPLETE`, conditioned on the segment above but never labelled with it.
+`sql/06_audio_demo.sql` adds **3 more** transcribed from real audio, bringing 2
+further customers in, for 1,203 artefacts across 596 customers.
+
+### Allocation is exact, like everything else here
+
+Customers are picked by `ROW_NUMBER()` over `RAW.RND('ixsel|' || id)` and sliced;
+artefact counts are a fixed high/low split, not a random draw, so 1,200 is a count
+and not an average.
+
+| Segment | Customers | Split | Artefacts |
+|---|---|---|---|
+| `RETENTION_SAVE` | 200 | 100×3 + 100×2 | 500 |
+| `COLLECTIONS_HARDSHIP` | 110 | 55×3 + 55×2 | 275 |
+| `NONE` | 129 | 65×2 + 64×1 | 194 |
+| `LIMIT_INCREASE` | 55 | 27×2 + 28×1 | 82 |
+| `PROTECTION_GAP` | 55 | 27×2 + 28×1 | 82 |
+| `WEALTH_REFERRAL` | 45 | 22×2 + 23×1 | 67 |
+| **Total** | **594** | | **1,200** |
+
+The weighting is not proportional to segment size and should not be.
+`RETENTION_SAVE` and `COLLECTIONS_HARDSHIP` carry the richest text signal, so they
+get the volume. The 129 `NONE` customers are **negatives**: without them the
+enrichment layer could flag everybody, score perfect recall, and precision would
+be unmeasurable.
+
+### Forced overlap on vulnerability
+
+Proportional selection would have put only ~11 of the 100 `VULNERABLE_CROSSSELL`
+customers in the corpus — far too thin to test a guardrail. The selection ordering
+therefore puts vulnerable customers first within their segment, so **all 40 in
+`PROTECTION_GAP` and all 60 in `NONE` are included**. The guardrail cohort is
+precisely the population the vulnerability signal has to be legible on. Same
+mechanism and same reasoning as the suppression overlap in §5.
+
+Suppression overlap is left to fall out naturally (~55 threads). The `DNC` half of
+it carries the opt-out language, so `consent_withdrawal` has real positives without
+being forced.
+
+### The corpus does not name the segment, and that is enforced
+
+The generation prompt forbids classification language. Measured over 1,200
+artefacts `claude-haiku-4-5` obeys ~99.9% of the time — one adviser note came back
+reading *"High risk churn. F/up needed ASAP"*, which hands the pipeline the answer.
+
+So the rule is a predicate the loader enforces, `RAW.HAS_SEGMENT_LEAK(BODY)`, and a
+thread that trips it is deleted and regenerated rather than reported and kept.
+
+A first, naive version of that check flagged 42 artefacts of which **41 were
+correct contact-centre English** and are deliberately allowed:
+
+| Allowed | Why |
+|---|---|
+| "escalate this to our retention team" | an org unit. Indian insurers have retention desks; agents say this. |
+| "your account is at risk of legal action" | a specific stated consequence, not a risk score. |
+| "claims history in the segment" | underwriting language for a rating segment. |
+
+None of those tells a downstream model what the customer *is*. The predicate targets
+a **classification asserted about the customer** — `churn`, `propensity`,
+`at-risk customer`, `retention case`, `vulnerable customer`, `hardship case`,
+`risk score` — not the vocabulary surrounding it. Current count: **0 violations**.
+
+### What the pipeline actually recovered
+
+`sql/05_curated_signals.sql` reads only the text. Scored against the hidden truth:
+
+| Segment | n | churn flagged | competitor | hardship | renewal intent | payment-difficulty intent |
+|---|---|---|---|---|---|---|
+| `RETENTION_SAVE` | 201 | **100.0%** | **100.0%** | 0.0% | **100.0%** | 0.0% |
+| `COLLECTIONS_HARDSHIP` | 111 | 0.0% | 0.9% | **94.6%** | 0.9% | **94.6%** |
+| `NONE` | 129 | 0.0% | 0.0% | 1.6% | 0.0% | 0.0% |
+| `PROTECTION_GAP` | 55 | 0.0% | 0.0% | 3.6% | 0.0% | 1.8% |
+| `LIMIT_INCREASE` | 55 | 0.0% | 0.0% | 0.0% | 1.8% | 0.0% |
+| `WEALTH_REFERRAL` | 45 | 0.0% | 2.2% | 0.0% | 0.0% | 0.0% |
+
+Read the diagonal for recall and the off-diagonal for precision. Retention is
+perfectly separated on three independent signals. Hardship recovers 94.6% — 6 of
+111 missed. False positives on the negative cohort are **2 of 129 (1.6%)**, both
+hardship.
+
+These are counts against a quarantined answer key, not an impression. `evals/` will
+formalise them; the query is in `sql/07_curated_rollup.sql`'s neighbourhood and
+joins `CURATED.CUSTOMER_INTERACTION_ROLLUP` to `RAW.CUSTOMER_SEGMENT_TRUTH` — the
+only place that join is permitted.
+
+### Confidence has a provenance, and the threshold is one `UPDATE`
+
+Every inferred column carries a confidence, and the *kind* of confidence is
+recorded rather than blurred: `MODEL_REPORTED` where the function returns a score
+(`AI_EXTRACT` with `scores => TRUE`), `AGREEMENT_DERIVED` where two independent
+functions were asked the same question (`AI_CLASSIFY` vs `AI_COMPLETE` on intent —
+92.7% agree; `AI_COMPLETE` vs `AI_FILTER` on churn — 99.8% agree), and
+`PRESENCE_BASED` where `AI_SENTIMENT` returned `unknown`, which is absence rather
+than uncertainty and becomes `NULL`.
+
+Thresholds live in `CURATED.AI_CONFIG`, one global default plus per-field
+overrides. `CURATED.INTERACTION_SIGNALS_GATED` applies them; nothing downstream may
+read the ungated view or hardcode a threshold.
+
+### The audio path is real
+
+Three `.m4a` fixtures, generated locally per D1, transcribed with `AI_TRANSCRIBE`
+at `timestamp_granularity = 'speaker'` and folded into the same `RAW.INTERACTION`
+grain. **This settles the one untested claim in `PROJECT_BRIEF` §7** — `AI_TRANSCRIBE`
+works in `AWS_AP_SOUTH_1` via cross-region, for 0.03 credits over 244 seconds.
+
+Worth knowing: ASR noise measurably lowers confidence, and the gate reacts to it.
+"Aarohan" came back as "Arahan" and "Bajaj Allianz" as "Bajaj Alliance" —
+`AI_EXTRACT` still found the competitor, but on the Hinglish recording the
+sentiment and churn readings fell below threshold and were withheld. That is the
+threshold working, not failing.
+
+---
+
 ## 6. Supporting design notes
 
 **KYC is clean for planted segments.** `KYC_STATUS` is forced to `VERIFIED` for
