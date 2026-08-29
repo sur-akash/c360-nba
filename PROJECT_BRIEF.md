@@ -76,19 +76,24 @@ These are non-negotiable and drive the architecture.
 flowchart TB
   subgraph RAW["RAW — landed silos, as-received shapes"]
     direction LR
-    R1["CUSTOMER<br/>PARTY_ID, KYC, city, consent flags"]
-    R2["POLICY / LOAN<br/>book of business, premium, EMI"]
-    R3["PAYMENT_LEDGER<br/>collections, DPD, arrears"]
-    R4["SERVICE_TICKET<br/>complaints, requests, grievances"]
-    R5["CALL_RECORDING<br/>audio on stage + metadata"]
-    R6["CONSENT_REGISTRY<br/>DND, channel consent, opt-outs"]
+    R1["CUSTOMER · HOUSEHOLD<br/>party system: PARTY_ID, KYC, city,<br/>income band, vulnerability flag"]
+    R2["POLICY · CLAIM<br/>policy admin: motor/health/term/home/ulip,<br/>premium, sum assured, renewal date"]
+    R3["LOAN · CARD<br/>lending + cards: EMI, DPD and trailing DPD,<br/>limit, trailing utilisation, MCC mix"]
+    R4["TXN<br/>payments: 12 rolling months, MCC,<br/>direction, inbound lumpsums"]
+    R5["REPAYMENT<br/>collections ledger: EMI + premium,<br/>days late, missed flags"]
+    R6["SERVICE_TICKET<br/>servicing: complaints, requests,<br/>grievances, severity"]
+    R7["CALL_RECORDING<br/>contact centre: audio on stage<br/>+ bulk text notes"]
+    R8["CONSENT<br/>consent registry: per channel,<br/>opt-in, DNC, validity window"]
+    R9["PRODUCT_CATALOG<br/>product master: margin rate,<br/>min eligibility rules"]
+    R10["CAMPAIGN_HISTORY<br/>outbound contact log:<br/>channel, outcome, timestamp"]
+    R11["CUSTOMER_SEGMENT_TRUTH<br/>planted segment per customer<br/>QUARANTINED — evals only"]
   end
 
   subgraph CURATED["CURATED — conformed, typed, deduped, AI-enriched"]
     direction LR
     C1["DIM_PARTY<br/>identity resolution → CUSTOMER_ID"]
-    C2["CONTRACT<br/>policy + loan unified grain"]
-    C3["PAYMENT_FACT<br/>DPD buckets, arrears aging"]
+    C2["CONTRACT<br/>policy + loan + card, one grain"]
+    C3["PAYMENT_FACT · SPEND_FACT<br/>DPD buckets, arrears aging<br/>monthly spend, MCC mix, lumpsums"]
     C4["INTERACTION<br/>tickets + calls, one grain"]
     C5["CALL_TRANSCRIPT<br/>AI_TRANSCRIBE → text"]
     C6["INTERACTION_ENRICHED<br/>AI_SENTIMENT · AI_CLASSIFY intent<br/>AI_EXTRACT entities"]
@@ -113,13 +118,23 @@ flowchart TB
     A4["Streamlit in Snowflake<br/>agent · RM · portfolio views"]
   end
 
+  subgraph EVAL["evals/ — scoring, outside the pipeline"]
+    E1["NBA scored against the planted segment<br/>Analyst questions vs expected answers"]
+  end
+
   R1 --> C1
   R2 --> C2
-  R3 --> C3
-  R4 --> C4
-  R5 --> C5 --> C4
+  R3 --> C2
+  R4 --> C3
+  R5 --> C3
+  R6 --> C4
+  R7 --> C5 --> C4
   C4 --> C6
-  R6 --> G4
+
+  R8  --> G4
+  R9  --> G3
+  R9  --> G4
+  R10 --> G4
 
   C1 --> G1
   C2 --> G1
@@ -146,7 +161,26 @@ flowchart TB
   A3 --> A4
   G6 --> A4
   G7 --> A4
+
+  %% Ground truth reaches scoring only. It must never be read by
+  %% CURATED, GOLD or APP, or the engine is grading its own homework.
+  R11 -.-> E1
+  G6  -.-> E1
+  G7  -.-> E1
+
+  classDef quarantine stroke-dasharray: 5 5
+  class R11,E1 quarantine
 ```
+
+Every node above is a table that exists in `sql/02_schema_raw.sql`, except
+`CALL_RECORDING` (built by `04_raw_calls.sql`, see D1) and the `CURATED` / `GOLD`
+/ `APP` layers, which are still to come. RAW nodes are grouped by system of
+record rather than one node per table — that grouping *is* the silo problem in
+§1: `R3` knows a customer holds a home loan and `R2` knows they have no home
+cover, and nothing joins them until `C2`.
+
+`R11 CUSTOMER_SEGMENT_TRUTH` is drawn dashed and connected only to `evals/`
+because it is the answer key. Its predicates are in `docs/DATA_SEGMENTS.md`.
 
 ### Where AI is used, and where it deliberately is not
 
@@ -192,28 +226,54 @@ Compliance rules in scope (deterministic, each with a trace row):
 
 ```
 sql/
-  00_bootstrap.sql        role, warehouse, budget, database   (already applied)
-  10_schemas.sql          RAW / CURATED / GOLD / APP + stages
-  20_raw_*.sql            synthetic silo generation
-  30_curated_*.sql        conform, dedupe, identity resolution
-  35_curated_ai.sql       transcribe, sentiment, intent, extract
-  40_gold_spine.sql       CUSTOMER_360, CUSTOMER_FEATURES
-  50_gold_nba.sql         catalogue, eligibility trace, EV, ranking
-  60_semantic_view.sql    APP.C360_SV
-  65_search_service.sql   APP.INTERACTION_SEARCH
-  70_agent.sql            APP.NBA_ADVISOR
-  80_streamlit.sql        APP.C360_APP  (needs app files staged first)
-  90_verify.sql           assertions across every layer
-  99_teardown.sql         drop everything
-app/                      Streamlit in Snowflake source
-data/audio/               committed call-recording fixtures (.m4a)
-evals/                    scored NBA + Analyst evaluation
-docs/                     run order, cost notes, gotchas
-run.sh                    full rebuild, including the one stage-copy step
+  00_bootstrap.sql            role, warehouse, budget, database   (applied)
+  01_schemas.sql              RAW / CURATED / GOLD / APP + stages + region guard
+  02_schema_raw.sql           RAW tables + seeded RNG functions    (applied)
+  03_seed_raw.sql             synthetic silo generation            (applied)
+  04_raw_calls.sql            RAW.CALL_RECORDING — bulk notes + audio metadata
+  10_curated_party.sql        CURATED.DIM_PARTY — identity resolution
+  11_curated_contract.sql     CURATED.CONTRACT — policy + loan + card, one grain
+  12_curated_payment.sql      CURATED.PAYMENT_FACT + SPEND_FACT — arrears, spend
+  13_curated_interaction.sql  CURATED.INTERACTION — tickets + calls, one grain
+  14_curated_transcribe.sql   CURATED.CALL_TRANSCRIPT — AI_TRANSCRIBE + bulk text
+  15_curated_enrich.sql       CURATED.INTERACTION_ENRICHED — sentiment, intent, entities
+  19_search_service.sql       APP.INTERACTION_SEARCH — retrieval over 14 and 15
+  20_gold_spine.sql           GOLD.CUSTOMER_360, GOLD.CUSTOMER_FEATURES
+  21_gold_actions.sql         GOLD.ACTION_CATALOGUE
+  22_gold_eligibility.sql     GOLD.ELIGIBILITY_TRACE, GOLD.DO_NOT_CONTACT
+  23_gold_ev.sql              GOLD.NBA_CANDIDATE — deterministic EV, no AI
+  24_gold_nba_ranked.sql      GOLD.NBA_RANKED — reasons + evidence
+  30_semantic_view.sql        APP.C360_SV
+  31_agent.sql                APP.NBA_ADVISOR
+  32_streamlit.sql            APP.C360_APP  (needs app files staged first)
+  90_verify.sql               assertions across every layer
+  99_teardown.sql             drop everything
+app/                          Streamlit in Snowflake source
+data/audio/                   committed call-recording fixtures (.m4a)
+evals/                        scored NBA + Analyst evaluation
+docs/
+  DATA_SEGMENTS.md            planted segments + identifying predicates
+run.sh                        full rebuild, including the one stage-copy step
 ```
 
 Every SQL script is re-runnable against a database in any state. `run.sh` exists
 because exactly one step in the rebuild is not SQL — see decision D2.
+
+**Numeric order is run order, and it follows the dependency graph.** Three
+consequences worth noting, since none is obvious from the numbers alone:
+
+- **`19_search_service.sql` sits in the CURATED block, not with the other `APP`
+  objects.** It only depends on M3, and `24_gold_nba_ranked.sql` cites evidence
+  retrieved through it, so it has to be built before the GOLD block rather than
+  alongside the semantic view and agent.
+- **`02_schema_raw.sql` creates the `RAW` schema itself**, duplicating one line
+  of `01_schemas.sql`. Deliberate: it keeps the RAW layer runnable standalone
+  against an empty database. Both use `IF NOT EXISTS`.
+- **`03_seed_raw.sql` covers the book, payments and servicing silos in one
+  script.** They share the ground-truth table and condition on each other, so
+  splitting them across three files would mean three files that cannot be run
+  independently anyway. Calls stay separate in `04` because the audio path is
+  genuinely independent — see D1.
 
 ---
 
@@ -351,12 +411,12 @@ everything downstream sees one grain and cannot tell which rows came from audio.
 ### D2. One documented non-SQL step in the rebuild
 
 `sql/` remains authoritative for every database object. Exactly one step is not SQL:
-copying `app/` to `APP.APP_STAGE` before `sql/80_streamlit.sql` runs. `run.sh` wraps
+copying `app/` to `APP.APP_STAGE` before `sql/32_streamlit.sql` runs. `run.sh` wraps
 the whole sequence so the rebuild is one command and the seam is explicit rather than
 hidden.
 
 ```
-sql/00 … sql/70   →   snow stage copy app/ @APP.APP_STAGE   →   sql/80_streamlit.sql
+sql/00 … sql/31   →   snow stage copy app/ @APP.APP_STAGE   →   sql/32_streamlit.sql
 ```
 
 ### D3. Tiered models, token-gated
@@ -395,18 +455,18 @@ Dependencies are strict: a milestone may not start until its predecessors are gr
 
 | # | Milestone | Creates | Depends on |
 |---|---|---|---|
-| **M0** | Foundation | `sql/00_bootstrap.sql` (fix deprecated `SNOWFLAKE.CORTEX.SENTIMENT`), `sql/10_schemas.sql` → schemas `RAW`, `CURATED`, `GOLD`, `APP`; stages `RAW.AUDIO_STAGE`, `APP.APP_STAGE`; guard asserting `CORTEX_ENABLED_CROSS_REGION` is not `DISABLED` | — |
-| **M1** | Synthetic silos | `sql/20_raw_book.sql` → `RAW.CUSTOMER`, `RAW.CONTRACT` (both LOBs), `RAW.CONSENT_REGISTRY`; `sql/21_raw_payments.sql` → `RAW.PAYMENT_LEDGER`; `sql/22_raw_service.sql` → `RAW.SERVICE_TICKET`; `sql/23_raw_calls.sql` → `RAW.CALL_RECORDING`. Each customer gets a hidden ground-truth segment that drives both their numbers and their note text, so evals are scoreable. | M0 |
+| **M0** | Foundation | `sql/00_bootstrap.sql` (applied; still needs the deprecated `SNOWFLAKE.CORTEX.SENTIMENT` fixed per R7), `sql/01_schemas.sql` → schemas `RAW`, `CURATED`, `GOLD`, `APP`; stages `RAW.AUDIO_STAGE`, `APP.APP_STAGE`; guard asserting `CORTEX_ENABLED_CROSS_REGION` is not `DISABLED` | — |
+| **M1** | Synthetic silos — **done except calls** | `sql/02_schema_raw.sql` → `RAW` schema, 7 seeded RNG functions, 13 table DDLs. `sql/03_seed_raw.sql` → `CUSTOMER_SEGMENT_TRUTH`, `CUSTOMER`, `HOUSEHOLD`, `CONSENT`, `PRODUCT_CATALOG`, `POLICY`, `CLAIM`, `LOAN`, `CARD`, `TXN` (1.2M), `REPAYMENT`, `SERVICE_TICKET`, `CAMPAIGN_HISTORY`. Still to build: `sql/04_raw_calls.sql` → `RAW.CALL_RECORDING`. Ground truth is a **separate quarantined table**, not a `CUSTOMER` column, so the engine cannot use it as a feature; only `evals/` reads it. Seven planted segments validated at exactly their target counts with zero false positives — see `docs/DATA_SEGMENTS.md`. | M0 |
 | **M1a** | Audio fixtures | `data/audio/*.m4a` (~12, generated locally), staged to `RAW.AUDIO_STAGE` | M0 |
-| **M2** | Conform | `sql/30_curated_party.sql` → `CURATED.DIM_PARTY`; `sql/31_curated_contract.sql` → `CURATED.CONTRACT`; `sql/32_curated_payment.sql` → `CURATED.PAYMENT_FACT` (DPD buckets); `sql/33_curated_interaction.sql` → `CURATED.INTERACTION` | M1 |
-| **M3** | AI enrichment | `sql/35_curated_transcribe.sql` → `CURATED.CALL_TRANSCRIPT` (`AI_TRANSCRIBE` over staged audio, unioned with bulk text); `sql/36_curated_enrich.sql` → `CURATED.INTERACTION_ENRICHED` (`AI_SENTIMENT`, `AI_CLASSIFY` intent, `AI_EXTRACT` entities on `claude-haiku-4-5`). `AI_COUNT_TOKENS` gate first. | M2, M1a |
-| **M4** | Customer spine | `sql/40_gold_spine.sql` → `GOLD.CUSTOMER_360`, `GOLD.CUSTOMER_FEATURES` | M3 |
-| **M5** | Eligibility and EV | `sql/50_gold_actions.sql` → `GOLD.ACTION_CATALOGUE`; `sql/51_gold_eligibility.sql` → `GOLD.ELIGIBILITY_TRACE`, `GOLD.DO_NOT_CONTACT`; `sql/52_gold_ev.sql` → `GOLD.NBA_CANDIDATE`. **Deterministic SQL only, no AI.** | M4 |
-| **M6** | Reasons and evidence | `sql/55_gold_nba_ranked.sql` → `GOLD.NBA_RANKED`. `claude-opus-5` structured output on the demo slice, template elsewhere, `REASON_SOURCE` recorded. Optional `AI_REDACT` on prompt inputs per R1. | M5, M7 |
-| **M7** | Retrieval | `sql/65_search_service.sql` → `APP.INTERACTION_SEARCH` (Cortex Search over transcripts and notes, `snowflake-arctic-embed-l-v2.0`, in-region) | M3 |
-| **M8** | Analytical layer | `sql/60_semantic_view.sql` → `APP.C360_SV` over spine, features, `NBA_RANKED`, `DO_NOT_CONTACT`; verified queries | M5, M6 |
-| **M9** | Agent | `sql/70_agent.sql` → `APP.NBA_ADVISOR` with `cortex_analyst_text_to_sql` → `APP.C360_SV`, `cortex_search` → `APP.INTERACTION_SEARCH`, `data_to_chart`; `GRANT USAGE ON AGENT` to the demo user's default role | M7, M8 |
-| **M10** | Application | `app/streamlit_app.py`, stage copy, `sql/80_streamlit.sql` → `APP.C360_APP` + `ALTER STREAMLIT … ADD LIVE VERSION FROM LAST`. Three views: agent desk, RM book, portfolio + do-not-contact. No external packages (no `CREATE INTEGRATION` available). | M9 |
+| **M2** | Conform | `sql/10_curated_party.sql` → `CURATED.DIM_PARTY`; `sql/11_curated_contract.sql` → `CURATED.CONTRACT` (unifies `RAW.POLICY` + `RAW.LOAN` + `RAW.CARD`); `sql/12_curated_payment.sql` → `CURATED.PAYMENT_FACT` (DPD buckets, from `RAW.REPAYMENT`) and `CURATED.SPEND_FACT` (monthly spend, MCC mix, inbound lumpsums, from `RAW.TXN`); `sql/13_curated_interaction.sql` → `CURATED.INTERACTION` | M1 |
+| **M3** | AI enrichment | `sql/14_curated_transcribe.sql` → `CURATED.CALL_TRANSCRIPT` (`AI_TRANSCRIBE` over staged audio, unioned with bulk text); `sql/15_curated_enrich.sql` → `CURATED.INTERACTION_ENRICHED` (`AI_SENTIMENT`, `AI_CLASSIFY` intent, `AI_EXTRACT` entities on `claude-haiku-4-5`). `AI_COUNT_TOKENS` gate first. | M2, M1a |
+| **M4** | Customer spine | `sql/20_gold_spine.sql` → `GOLD.CUSTOMER_360`, `GOLD.CUSTOMER_FEATURES` | M3 |
+| **M5** | Eligibility and EV | `sql/21_gold_actions.sql` → `GOLD.ACTION_CATALOGUE` (margin and eligibility thresholds come from `RAW.PRODUCT_CATALOG`); `sql/22_gold_eligibility.sql` → `GOLD.ELIGIBILITY_TRACE`, `GOLD.DO_NOT_CONTACT`; `sql/23_gold_ev.sql` → `GOLD.NBA_CANDIDATE`. **Deterministic SQL only, no AI.** | M4 |
+| **M6** | Reasons and evidence | `sql/24_gold_nba_ranked.sql` → `GOLD.NBA_RANKED`. `claude-opus-5` structured output on the demo slice, template elsewhere, `REASON_SOURCE` recorded. Optional `AI_REDACT` on prompt inputs per R1. | M5, M7 |
+| **M7** | Retrieval | `sql/19_search_service.sql` → `APP.INTERACTION_SEARCH` (Cortex Search over transcripts and notes, `snowflake-arctic-embed-l-v2.0`, in-region) | M3 |
+| **M8** | Analytical layer | `sql/30_semantic_view.sql` → `APP.C360_SV` over spine, features, `NBA_RANKED`, `DO_NOT_CONTACT`; verified queries | M5, M6 |
+| **M9** | Agent | `sql/31_agent.sql` → `APP.NBA_ADVISOR` with `cortex_analyst_text_to_sql` → `APP.C360_SV`, `cortex_search` → `APP.INTERACTION_SEARCH`, `data_to_chart`; `GRANT USAGE ON AGENT` to the demo user's default role | M7, M8 |
+| **M10** | Application | `app/streamlit_app.py`, stage copy, `sql/32_streamlit.sql` → `APP.C360_APP` + `ALTER STREAMLIT … ADD LIVE VERSION FROM LAST`. Three views: agent desk, RM book, portfolio + do-not-contact. No external packages (no `CREATE INTEGRATION` available). | M9 |
 | **M11** | Verification | `sql/90_verify.sql` — row counts, null rates, referential integrity, and a hard assertion that no suppressed customer appears as eligible. `evals/` — NBA scored against the hidden segment, Analyst questions with expected answers. | M10 |
 | **M12** | Teardown and docs | `sql/99_teardown.sql`, `run.sh`, `docs/README.md` | M11 |
 
