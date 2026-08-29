@@ -1,0 +1,358 @@
+[
+  {
+    "event": "response.thinking",
+    "data": {
+      "content_index": 0,
+      "sequence_number": 1,
+      "text": "This question exactly matches a verified query — a governed SQL statement the agent builder authored and verified as the correct answer for this exact question. I'm running that verified SQL and will answer directly from its results, without re-deriving, rewriting, or second-guessing it. I haven't loaded the semantic model; if a follow-up question needs more than these results, I'll load it then so I can answer accurately."
+    }
+  },
+  {
+    "event": "response.tool_use",
+    "data": {
+      "client_side_execute": false,
+      "content_index": 1,
+      "input": {
+        "execution_environment": {
+          "type": "warehouse",
+          "warehouse": "COCO_WH"
+        },
+        "semantic_model": "portfolio_analytics",
+        "sql": "SELECT * FROM SEMANTIC_VIEW(\n             C360_NBA.GOLD.SV_CUSTOMER_360\n             METRICS nba.nba_count, nba.total_expected_value_inr\n             DIMENSIONS nba.action_class\n           ) ORDER BY NBA_COUNT DESC NULLS LAST",
+        "verified_query_used": true
+      },
+      "name": "system_execute_sql",
+      "sequence_number": 4,
+      "tool_use_id": "tooluse_09f228e6acab4246b815e5",
+      "type": "system_execute_sql"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Running system_execute_sql",
+      "sequence_number": 5,
+      "status": "executing_tool",
+      "tool_type": "system_execute_sql",
+      "tool_use_id": "tooluse_09f228e6acab4246b815e5"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Postprocessing and validating SQL",
+      "sequence_number": 6,
+      "status": "Validating SQL",
+      "tool_type": "system_execute_sql",
+      "tool_use_id": "tooluse_09f228e6acab4246b815e5"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Executing SQL",
+      "sequence_number": 7,
+      "status": "Executing SQL",
+      "tool_type": "system_execute_sql",
+      "tool_use_id": "tooluse_09f228e6acab4246b815e5"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "details": {
+        "QueryID": "01c6b80c-0002-897e-000e-981a000704a2"
+      },
+      "message": "Query ID: 01c6b80c-0002-897e-000e-981a000704a2",
+      "sequence_number": 8,
+      "status": "Executing SQL",
+      "tool_type": "system_execute_sql",
+      "tool_use_id": "tooluse_09f228e6acab4246b815e5"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "details": {
+        "bytes_spilled_local": 0,
+        "bytes_spilled_remote": 0,
+        "produced_rows": 0,
+        "scan_assigned_bytes": 0,
+        "scan_bytes": 0,
+        "state": "GS_COMPILING",
+        "status": "RUNNING"
+      },
+      "message": "Executing SQL",
+      "sequence_number": 9,
+      "status": "RUNNING",
+      "tool_type": "system_execute_sql",
+      "tool_use_id": "tooluse_09f228e6acab4246b815e5"
+    }
+  },
+  {
+    "event": "response.tool_result",
+    "data": {
+      "content": [
+        {
+          "json": {
+            "query_id": "01c6b80c-0002-897e-000e-981a000704a2",
+            "result_set": {
+              "data": [
+                [
+                  "2670",
+                  "4437035",
+                  "SALES"
+                ],
+                [
+                  "908",
+                  "2659714",
+                  "CARE"
+                ],
+                [
+                  "339",
+                  "80606",
+                  "RETENTION"
+                ]
+              ],
+              "resultSetMetaData": {
+                "format": "jsonv2",
+                "numRows": 3,
+                "partition": 0,
+                "partitionInfo": [
+                  {
+                    "rowCount": 3,
+                    "uncompressedSize": 92
+                  }
+                ],
+                "rowType": [
+                  {
+                    "length": 0,
+                    "name": "NBA_COUNT",
+                    "nullable": true,
+                    "precision": 18,
+                    "scale": 0,
+                    "type": "fixed"
+                  },
+                  {
+                    "length": 0,
+                    "name": "TOTAL_EXPECTED_VALUE_INR",
+                    "nullable": true,
+                    "precision": 0,
+                    "scale": 0,
+                    "type": "real"
+                  },
+                  {
+                    "length": 12,
+                    "name": "ACTION_CLASS",
+                    "nullable": true,
+                    "precision": 0,
+                    "scale": 0,
+                    "type": "text"
+                  }
+                ]
+              },
+              "statementHandle": "01c6b80c-0002-897e-000e-981a000704a2"
+            },
+            "semantic_model_path": "C360_NBA.GOLD.SV_CUSTOMER_360",
+            "sql": "SELECT * FROM SEMANTIC_VIEW(\n             C360_NBA.GOLD.SV_CUSTOMER_360\n             METRICS nba.nba_count, nba.total_expected_value_inr\n             DIMENSIONS nba.action_class\n           ) ORDER BY NBA_COUNT DESC NULLS LAST\n-- Generated by Cortex\n;",
+            "verified_query_used": true
+          },
+          "type": "json"
+        }
+      ],
+      "content_index": 2,
+      "name": "system_execute_sql",
+      "sequence_number": 10,
+      "status": "success",
+      "tool_use_id": "tooluse_09f228e6acab4246b815e5",
+      "type": "system_execute_sql"
+    }
+  },
+  {
+    "event": "response.thinking",
+    "data": {
+      "content_index": 3,
+      "sequence_number": 14,
+      "signature": "EpwCCnEIERABGAIqQPi1dsIzWXnbY/Jlqh9DJ55eLJeZvjx6I8o6E42lBNR7cXpP29CmdWamRki2x6Xnornp8DVEA1LIYEIL293j9J0yDWNsYXVkZS1xdWluY2U4AEIIdGhpbmtpbmdaDDQ2Njk3MDEwNzI1MRIM6Hat0Qz/js56lcavGgwwDp1iG1cPyH6X9pkiMJcyVHk/WAk02kwTR9Hk274VsRr0UmUlhcywrrpYesTdYhEkY7rjwki08DLeAcC9ESpZFrjNtjFyzG0f28N4KaSmEpflhUM1uIg+bmS2+DvASZWamn1us5bsIwZAF+OmRR6eXEUxDaQ0Ct7DOQ07qiCxZloiQMP/CTvx1bAY2SIclEXYRudzCh3N6/YYAQ==",
+      "text": ""
+    }
+  },
+  {
+    "event": "response.tool_use",
+    "data": {
+      "client_side_execute": false,
+      "content_index": 4,
+      "input": {
+        "skill_name": "chart_instructions"
+      },
+      "name": "server_skill",
+      "sequence_number": 17,
+      "tool_use_id": "toolu_bdrk_01VY484QEe6mxvtz58E5ABMC",
+      "type": "server_skill"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Running server_skill",
+      "sequence_number": 18,
+      "status": "executing_tool",
+      "tool_type": "server_skill",
+      "tool_use_id": "toolu_bdrk_01VY484QEe6mxvtz58E5ABMC"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Reading skills",
+      "sequence_number": 19,
+      "status": "reading_skills",
+      "tool_type": "server_skill",
+      "tool_use_id": "toolu_bdrk_01VY484QEe6mxvtz58E5ABMC"
+    }
+  },
+  {
+    "event": "response.tool_result",
+    "data": {
+      "content": [
+        {
+          "json": {
+            "content": "# Skill: chart_instructions\n\n**Description**: Instructions for generating Vega-Lite chart specifications with unrestricted chart types\n\n## Instructions\n\n\n# WHEN TO GENERATE A CHART\n\n**PHASE 1: DECIDING TO GENERATE A CHART** (happens DURING your reasoning, BEFORE you have a chart tool result)\n\nInspecting results from system_execute_sql, you MUST evaluate in <thinking>:\n\n**Step 1: Should I generate a chart?**\n  - Prefer charts over tables for: comparisons, trends, rankings, distributions, time-series\n  - MUST generate charts when SQL results have 2+ rows with numerical metrics (revenue, sales, counts, growth rates, percentages)\n  - Example of MANDATORY chart scenarios:\n    - Comparisons: revenue by region, sales by product, performance by team\n    - Rankings: top 10 customers, bottom performers, leaderboards\n    - Time series: monthly trends, year-over-year growth, daily metrics\n    - Distributions: category breakdowns, segment analysis\n  - Do NOT chart: singular values (e.g., \"What is total revenue?\" → just answer \"The total revenue is $X\")\n  - Prefer using the prior SQL result's `tool_use_id` as `tool_result_id` when available\n\n**Step 2: Is the SQL result visualization-ready?**\n  - Check: row count, column names, aggregation level, data shape\n  - Check if the question mentions a specific chart type that should be generated. If it does, check if the SQL result is visualization-ready for the requested chart type.\n  - **IMPORTANT - Check custom instructions**: Review the system prompt for any custom response instructions or chart-related preferences. Custom instructions should take precedence over recommendations in this guide, unless they are breaking the system. For example, if custom instructions say \"always use bar charts for time series\", you MUST use a bar chart even though this guide recommends line charts for time series. Double-check any instructions under \"[Important Case-specific Instructions]\" section in the system prompt, and apply any chart-relevant guidance.\n\n**Step 3: Prepare data and generate a chart**\n  - If data is NOT visualization-ready → Use a vega-lite transform to reshape the data before calling data_to_chart again. Reuse the prior SQL result's tool_use_id; do NOT run a new SQL query for chart data reshaping unless absolutely necessary and you need different data.\n  - Always provide context text BEFORE the chart block, then show the chart (both inline in your answer text).\n\n**Step 4: Consider generating multiple charts**\n  - You CAN generate multiple charts when a single chart would be insufficient or misleading:\n    - **Different scales**: When metrics have vastly different magnitudes (e.g., revenue in millions vs. growth rate in percentages), a single chart may hide patterns in smaller values. Create separate charts for each scale.\n    - **Different perspectives**: When the user's question benefits from multiple views (e.g., \"analyze sales performance\" could show both a trend over time AND a breakdown by category).\n    - **Comparison clarity**: When comparing items with very different value ranges, separate charts can make each comparison more straightforward.\n  - To generate multiple charts:\n    1. Call data_to_chart multiple times, once for each chart\n    2. Present each chart with a brief label explaining what it shows. Remember to cite each chart separately\n    3. Example: \"Here's the revenue trend:\" followed by chart 1, then \"And here's the growth rate trend:\" followed by chart 2\n  - Do NOT generate multiple charts just to show more visualizations - only when it genuinely improves understanding.\n\n**PHASE 2: PRESENTING THE CHART** (happens AFTER you have a chart tool result in conversation history)\n\nOnce you have called data_to_chart tool and received a tool result:\n  * Find the data_to_chart tool result with the chart in conversation history\n  * Provide the <chart>toolUseId</chart> block inline in your answer text after the thinking block where toolUseId is from the data_to_chart tool result\n  * Valid chart block format: <chart>tooluse_8n3P5qRk7aWzJ1cYxTvEfg</chart>\n  * If you cannot find ANY valid tool results from data_to_chart tool in conversation history, just say \"I couldn't generate a valid visualization.\"\n  * **AVOID REPETITION**: When user did not ask for a chart explicitly, your chart response comes AFTER your initial response in the conversation. Do NOT repeat information already provided in your previous answer before generating the chart:\n    - Do NOT repeat the summary or analysis from your first response\n    - Introduce the chart and optionally add NEW observations visible only in the visualization (e.g., visual patterns, outliers that stand out graphically) or new findings that you were not aware of before.\n  * All chart blocks must be placed inline in your answer text, not before the thinking block.\n  * DO NOT use tool IDs from system_execute_sql tool results to generate a chart block. These will cause rendering errors. ONLY use data_to_chart tool use IDs in chart blocks.\n  * DO NOT reference or describe chart colors (e.g., \"the blue line\", \"red bars\") in your <thinking> sections, unless you explicitly specified them in chart specification.\n  * **Colors**: The chart's Vega-Lite spec may include a `color_mapping` object at `usermeta.snowflake.color_mapping` (e.g. `{\"Health\":{\"hex\":\"#1a6ce7\",\"name\":\"blue\"}}`) where each entry maps a category to its rendered hex and color name. Whenever the user refers to a series by color or asks to recolor one, you MUST consult `color_mapping` to identify the category. Match the user's color word to the closest `name` — do not require an exact match; map approximate or near human color words to the nearest name (e.g. \"sky\"/\"sky blue\"/\"navy\"/\"azure\"/\"cobalt\" → \"blue\", \"crimson\"/\"maroon\"/\"scarlet\" → \"red\", \"lime\"/\"emerald\"/\"olive\" → \"green\", \"gold\"/\"amber\" → \"orange\"). Use the matched category whether they ask about a color (e.g. \"what does the red line show?\") or ask to recolor it (e.g. \"change the sky-blue bar to yellow\"); for recolor, change only that category's color and preserve all other encodings.\n\n# HOW TO USE\n\n## Step 1: Call data_to_chart\n\nProvide:\n\n1. **`chart`**: a complete Vega-Lite JSON specification (see format below)\n2. **`tool_result_id`**: the `tool_use_id` of a previous system_execute_sql result whose data should be used. Refreshable.\n\n## Step 2: Cite the chart\n\nUse the data_to_chart `tool_use_id` when citing the chart inline in your answer text:\n```\n<chart>tool_use_id</chart>\n```\n\n# CHART SPEC FORMAT\n\nThe `chart` parameter must be a valid Vega-Lite JSON object.\n\n## Single-view constraint\nThe rendering backend only supports **single-view** specs. Do NOT use `vconcat`, `hconcat`, `facet`, or `repeat`.\n\nTo combine multiple chart types (e.g., bar + line), use `layer` within a single-view spec.\nIf the user asks for side-by-side panels, generate **separate charts** by calling data_to_chart multiple times.\n\n## Data handling\n- **Do NOT include a top-level `\"data\"` field.** The referenced SQL result is injected automatically and **overwrites** any `data` you provide. Because of this override, your `encoding.field` names MUST match the **SQL result column names exactly** — Snowflake returns them UPPERCASE by default (e.g. `INCIDENT_MONTH`, `INCIDENT_COUNT`) — NOT any friendlier alias you might invent.\n  - **This is the #1 cause of blank charts:** writing inline data like `{\"month\": ..., \"count\": ...}` and then encoding `\"field\": \"month\"`. The pipeline replaces your data with columns `INCIDENT_MONTH`/`INCIDENT_COUNT`, so `month`/`count` no longer exist and no marks are drawn. Always take field names from the actual SQL result columns in the conversation, not from your prose or example data.\n- **Do NOT include `\"width\"` or `\"height\"`.** These are set in post-processing.\n- **The ONLY place a `\"data\"` field is allowed is inside an annotation layer** — a `rule`/`text` reference-line or label layer where you supply your own constant positions/labels (see Tip 8). That per-layer `data.values` is NOT overwritten. Never put `data` at the top level, and never put it on a primary data-bearing layer.\n- For `layer` specs, omit top-level `\"data\"`; the injected SQL result is shared across all data-bearing layers.\n\n## Single-layer example\n```json\n{\n  \"title\": \"Monthly Revenue\",\n  \"mark\": {\"type\": \"area\", \"opacity\": 0.7},\n  \"encoding\": {\n    \"x\": {\"field\": \"MONTH\", \"type\": \"temporal\"},\n    \"y\": {\"field\": \"REVENUE\", \"type\": \"quantitative\"},\n    \"color\": {\"field\": \"REGION\", \"type\": \"nominal\"}\n  }\n}\n```\n\n## Multi-layer example (dual-axis)\n```json\n{\n  \"title\": \"Revenue vs Orders\",\n  \"layer\": [\n    {\n      \"mark\": \"bar\",\n      \"encoding\": {\n        \"x\": {\"field\": \"MONTH\", \"type\": \"ordinal\"},\n        \"y\": {\"field\": \"REVENUE\", \"type\": \"quantitative\", \"axis\": {\"title\": \"Revenue ($)\"}}\n      }\n    },\n    {\n      \"mark\": {\"type\": \"line\", \"color\": \"red\", \"strokeWidth\": 2},\n      \"encoding\": {\n        \"x\": {\"field\": \"MONTH\", \"type\": \"ordinal\"},\n        \"y\": {\"field\": \"ORDERS\", \"type\": \"quantitative\", \"axis\": {\"title\": \"Orders\"}}\n      }\n    }\n  ],\n  \"resolve\": {\"scale\": {\"y\": \"independent\"}}\n}\n```\n\n# FIELD TYPES\n\n- `\"quantitative\"` — numeric values\n- `\"nominal\"` — categorical without order\n- `\"ordinal\"` — categorical with order\n- `\"temporal\"` — date/time values\n\n# TIPS\n\n\n1. **Dual-axis**: Use `layer` with `resolve: {scale: {y: \"independent\"}}`. **Use at most 2 layers.** More than 2 layers causes overlapping Y-axis labels. If you need to show 3+ metrics on different scales, generate **separate charts** by calling data_to_chart multiple times instead.\n2. **Heatmaps**: Use `mark: \"rect\"` with `color` on quantitative, `x`/`y` on nominal\n3. **Boxplots**: Use `mark: \"boxplot\"`\n4. **Waterfall**: Use `calculate` transforms for running totals, then `bar` with `y`/`y2`\n5. **Technical/helper columns**: If you create a transform output that is only used for styling, positioning, or other internal chart mechanics, its field name MUST start with `_`. Examples: `_color`, `_label_x`, `_x`, `_y`, `_label`. These internal helper fields are not user-facing and should not be intended for tooltips or legends unless you explicitly mean to expose them.\n6. **Custom colors**: When the user (or chart customization soft instructions) requests specific colors per series or wants to highlight specific marks, read [references/colors.md](references/colors.md) for the two `_color` patterns (multi-series via `scale.range.field` vs highlight via `scale: null`) and the rules that keep them mutually exclusive.\n7. **Global styling**: Use the `config` object for background, fonts, default mark color, etc. (e.g., `\"config\": {\"background\": \"lightgray\"}`)\n8. **Annotations, reference lines, and bar text labels**: Add annotation layers ONLY when the user (or chart customization soft instructions) explicitly asks for reference lines, event markers, value labels on bars, or text callouts.\n\n   Use `rule` or `text` layers with **per-layer `data`** and `field`-based encoding. Do **NOT** use `datum` — it is not supported by the renderer and will render at position 0. Give each annotation layer its own `\"data\": {\"values\": [...]}` with the position values, then reference them via `field`.\n\n   Example — vertical reference line + label on a temporal x-axis:\n   ```json\n   {\n     \"layer\": [\n       {\n         \"mark\": {\"type\": \"rule\", \"color\": \"#FF6B6B\", \"strokeDash\": [4, 4]},\n         \"data\": {\"values\": [{\"_X\": \"2025-04-18\"}]},\n         \"encoding\": {\"x\": {\"field\": \"_X\", \"type\": \"temporal\"}}\n       },\n       {\n         \"mark\": {\"type\": \"text\", \"align\": \"left\", \"dx\": 5, \"dy\": -5, \"color\": \"#FF6B6B\", \"fontSize\": 11},\n         \"data\": {\"values\": [{\"_X\": \"2025-04-18\", \"_Y\": 190, \"_LABEL\": \"Event date\"}]},\n         \"encoding\": {\n           \"x\": {\"field\": \"_X\", \"type\": \"temporal\"},\n           \"y\": {\"field\": \"_Y\", \"type\": \"quantitative\"},\n           \"text\": {\"field\": \"_LABEL\", \"type\": \"nominal\"}\n         }\n       }\n     ]\n   }\n   ```\n   For horizontal reference lines use `\"y\"` instead of `\"x\"` with the same per-layer data pattern.\n\n   **CRITICAL — ordinal axis with explicit `sort` array**: When the main axis is `ordinal` with an explicit `sort` array (e.g. `[1,2,...,12]` or month names), the annotation layer's `data.values` key AND `encoding.field` MUST match the main layer's field name **exactly** (same casing). Renaming it (`MONTH` → `_MONTH`) silently breaks the shared scale's sort and falls back to alphabetical order. Pick ONE field name and reuse it in every layer.\n\n   Example — annotation on an ordinal axis with `sort`:\n   ```json\n   {\n     \"layer\": [\n       {\n         \"mark\": \"bar\",\n         \"encoding\": {\n           \"x\": {\"field\": \"MONTH\", \"type\": \"ordinal\", \"sort\": [1,2,3,4,5,6,7,8,9,10,11,12]},\n           \"y\": {\"field\": \"REVENUE\", \"type\": \"quantitative\"}\n         }\n       },\n       {\n         \"data\": {\"values\": [{\"MONTH\": 12, \"_LABEL\": \"Year-end\"}]},\n         \"mark\": {\"type\": \"text\", \"align\": \"right\", \"dx\": -4, \"dy\": -10, \"fontWeight\": \"bold\"},\n         \"encoding\": {\n           \"x\": {\"field\": \"MONTH\", \"type\": \"ordinal\", \"sort\": [1,2,3,4,5,6,7,8,9,10,11,12]},\n           \"y\": {\"value\": 10},\n           \"text\": {\"field\": \"_LABEL\", \"type\": \"nominal\"}\n         }\n       }\n     ]\n   }\n   ```\n\n   **Bar text labels**: Center labels at the midpoint of each bar via a `calculate` transform (e.g. `datum.SALES / 2`). Use a contrasting color (e.g. white text on dark bars).\n   ```json\n   {\n     \"layer\": [\n       {\"mark\": \"bar\", \"encoding\": {\"x\": {\"field\": \"SALES\", \"type\": \"quantitative\"}, \"y\": {\"field\": \"REGION\", \"type\": \"nominal\"}}},\n       {\n         \"transform\": [{\"calculate\": \"datum.SALES / 2\", \"as\": \"_label_x\"}],\n         \"mark\": {\"type\": \"text\", \"color\": \"white\"},\n         \"encoding\": {\n           \"x\": {\"field\": \"_label_x\", \"type\": \"quantitative\"},\n           \"y\": {\"field\": \"REGION\", \"type\": \"nominal\"},\n           \"text\": {\"field\": \"SALES\", \"type\": \"quantitative\"}\n         }\n       }\n     ]\n   }\n   ```\n9. **Multiple panels**: Call data_to_chart multiple times instead of using `hconcat`/`vconcat`\n\n# DATA QUALITY RULES\n\nFollow these rules to ensure charts render correctly. These prevent the most common failures.\n\n## 1. Bar charts: no duplicate categories\n\nFor bar charts without an aggregate, each (categorical_field, color_field) tuple must be unique. Duplicate categories cause stacked/overlapping bars that misrepresent the data. Avoid that, unless specifically requested by user.\n\n**Fix — aggregate transform** (preferred):\n```json\n{\n  \"transform\": [\n    {\"aggregate\": [{\"op\": \"sum\", \"field\": \"SALES\", \"as\": \"SALES\"}], \"groupby\": [\"REGION\", \"CATEGORY\"]}\n  ],\n  \"mark\": \"bar\",\n  \"encoding\": {\n    \"x\": {\"field\": \"SALES\", \"type\": \"quantitative\"},\n    \"y\": {\"field\": \"REGION\", \"type\": \"nominal\"},\n    \"color\": {\"field\": \"CATEGORY\", \"type\": \"nominal\"}\n  }\n}\n```\n\n**Fix — grouped bar chart** (when you want to show per-item bars side by side instead of stacking):\nUse `xOffset` (vertical bars) or `yOffset` (horizontal bars) to place bars next to each other. This is the **default** for multi-color bar charts.\n```json\n{\n  \"title\": \"Revenue by Region and Category\",\n  \"mark\": \"bar\",\n  \"encoding\": {\n    \"x\": {\"field\": \"SALES\", \"type\": \"quantitative\"},\n    \"y\": {\"field\": \"REGION\", \"type\": \"nominal\"},\n    \"yOffset\": {\"field\": \"CATEGORY\", \"type\": \"nominal\"},\n    \"color\": {\"field\": \"CATEGORY\", \"type\": \"nominal\", \"title\": \"Category\"}\n  }\n}\n```\n\n**Fix — stacked bar chart** (ONLY when the user explicitly asks for a \"stacked bar chart\"):\nAdd `\"stack\": \"zero\"` to the **quantitative** axis encoding and do NOT include `xOffset`/`yOffset`. Use `\"stack\": \"normalize\"` only when the user explicitly asks for normalized/percentage stacked bars.\nNEVER use `\"stack\": false`, `\"stack\": null`, or `\"stack\": \"center\"` — these cause broken or overlapping bars.\n```json\n{\n  \"title\": \"Sales by Region and Category (Stacked)\",\n  \"mark\": \"bar\",\n  \"encoding\": {\n    \"x\": {\"field\": \"SALES\", \"type\": \"quantitative\", \"stack\": \"zero\"},\n    \"y\": {\"field\": \"REGION\", \"type\": \"nominal\"},\n    \"color\": {\"field\": \"CATEGORY\", \"type\": \"nominal\", \"title\": \"Category\"}\n  }\n}\n```\nWhen combining with fold (wide-format data with multiple metric columns):\n```json\n{\n  \"transform\": [\n    {\"fold\": [\"CAPACITY\", \"UTILIZATION\"]},\n    {\"calculate\": \"({'CAPACITY': 'Capacity', 'UTILIZATION': 'Utilization'})[datum.key]\", \"as\": \"key\"}\n  ],\n  \"mark\": \"bar\",\n  \"encoding\": {\n    \"x\": {\"field\": \"value\", \"type\": \"quantitative\"},\n    \"y\": {\"field\": \"ACCOUNT\", \"type\": \"nominal\"},\n    \"yOffset\": {\"field\": \"key\", \"type\": \"nominal\"},\n    \"color\": {\"field\": \"key\", \"type\": \"nominal\", \"title\": \"Metric\"}\n  }\n}\n```\n**Rule**: The `xOffset`/`yOffset` field MUST be different from `x` and `y` fields. Never use the same field in multiple encodings.\n\n## 2. Line charts: unique x-values per series\n\nEach color series in a line chart must have unique x-values. Duplicate x-values within the same series create ambiguous zigzag lines.\n\n**Fix — wide-format data** (multiple value columns → fold):\n```json\n{\n  \"transform\": [{\"fold\": [\"REVENUE\", \"ORDERS\"]}],\n  \"mark\": \"line\",\n  \"encoding\": {\n    \"x\": {\"field\": \"MONTH\", \"type\": \"temporal\"},\n    \"y\": {\"field\": \"value\", \"type\": \"quantitative\"},\n    \"color\": {\"field\": \"key\", \"type\": \"nominal\"}\n  }\n}\n```\n\n**Fix — duplicate rows** (aggregate transform):\n```json\n{\n  \"transform\": [\n    {\"aggregate\": [{\"op\": \"sum\", \"field\": \"SALES\", \"as\": \"SALES\"}], \"groupby\": [\"DATE\", \"REGION\"]}\n  ],\n  \"mark\": \"line\",\n  \"encoding\": {\n    \"x\": {\"field\": \"DATE\", \"type\": \"temporal\"},\n    \"y\": {\"field\": \"SALES\", \"type\": \"quantitative\"},\n    \"color\": {\"field\": \"REGION\", \"type\": \"nominal\"}\n  }\n}\n```\n\n**Fix — missing color encoding**: If data has a category column causing duplicates, add `color` encoding so each series gets its own line with unique x-values.\n\n## 3. Bar charts: custom x-axis domains cause bars extending off-screen\n\nBar marks always start from 0 on the quantitative axis. If you set a custom `scale.domain` that excludes 0 (e.g., `[0.95, 1.1]` for values near 1.0), bars will stretch from 0 (off-screen) to their value, appearing as extremely long bars extending to the left (horizontal) or bottom (vertical).\n\n**Fix — use `x2`/`y2` to anchor the bar baseline at the domain start:**\n```json\n{\n  \"mark\": \"bar\",\n  \"encoding\": {\n    \"x\": {\"field\": \"METRIC\", \"type\": \"quantitative\", \"scale\": {\"domain\": [0.95, 1.1]}},\n    \"x2\": {\"datum\": 0.95},\n    \"y\": {\"field\": \"CATEGORY\", \"type\": \"nominal\"}\n  }\n}\n```\n\n**Alternative — use tick or point marks** which don't have a baseline:\n```json\n{\n  \"mark\": {\"type\": \"tick\", \"thickness\": 3},\n  \"encoding\": {\n    \"x\": {\"field\": \"METRIC\", \"type\": \"quantitative\", \"scale\": {\"domain\": [0.95, 1.1]}},\n    \"y\": {\"field\": \"CATEGORY\", \"type\": \"nominal\"}\n  }\n}\n```\n\n**Rule**: Whenever you use a bar chart with a custom `scale.domain` that does not include 0, you MUST either set `x2`/`y2` to the domain start value, or use a non-bar mark type (tick, point, circle).\n\n## 4. Temporal line charts: regular spacing\n\nFor temporal line charts, avoid data with very irregular time gaps (e.g., daily data with multi-month gaps). Vega-Lite draws straight lines between points, making large gaps misleading.\n\n**Fix options**:\n- If the user explicitly asks for a line chart with irregular data, use `\"point\": true` to show where real observations exist: `\"mark\": {\"type\": \"line\", \"point\": true}`\n- Otherwise, prefer a Vega-Lite `filter`/`aggregate` transform to produce data with regular time intervals (e.g., fill gaps with zeros or nulls, or aggregate to a coarser granularity like monthly/quarterly). Only run a new SQL query when absolutely necessary — i.e., the required transformation cannot be expressed as a vega-lite transform\n- Provide separate charts for each interval\n\n\n## 5. Field name casing must match SQL column names exactly — and must match across layers\n\nVega-Lite field matching is **case-sensitive**. Snowflake SQL returns column names in UPPERCASE by default. Always use the exact casing from the SQL result set.\n\n**Correct:** `{\"field\": \"REVENUE\", ...}` (matches Snowflake column `REVENUE`)\n**Wrong:** `{\"field\": \"revenue\", ...}` or `{\"field\": \"Revenue\", ...}`\n\nThis applies everywhere: encoding fields, `calculate` expressions (`datum.REVENUE`), `fold` field lists, `sort` field references, and `aggregate` groupby fields.\n\n**Cross-layer rule (layered specs):** Once a `field` name is used on a shared scale (e.g. `x` is `field: \"MONTH\"` in the bar layer), every other layer that draws on that same scale **and** every key in those layers' inline `data.values` must use the *exact* same string. Do NOT rename a column to make it look \"internal\" by adding/removing an underscore (`MONTH` → `_MONTH`) or changing case (`_month_name` → `_MONTH_NAME`) in an annotation layer — the rename silently breaks shared-scale features (sort fall-through, color-scale fall-through, axis-domain mismatch). When in doubt, reuse the *same* field name everywhere.\n\n# COMMON MISTAKES\n\n- Do NOT include a top-level `\"data\"`, `\"width\"`, `\"height\"`, or `\"$schema\"` — they are handled automatically (top-level `data` is overwritten by the injected SQL result). The only allowed `data` is per-layer `data.values` in a `rule`/`text` annotation layer (Tip 8)\n- Field names must match the injected SQL result column names EXACTLY (case-sensitive) — never the aliases you use in prose or inline example data\n- When using `layer`, all layers share compatible encodings unless using `resolve`\n- When using `fold` transform, the new fields default to `\"key\"` and `\"value\"`\n- **NEVER** use `vconcat`, `hconcat`, `facet`, or `repeat` — renderer only supports single-view\n- **DO NOT CREATE** `maps` - reading map json is blocked and will not render properly\n- **NEVER** use `datum` in `rule` or `text` annotation layers — always use per-layer `\"data\": {\"values\": [...]}` with `field`-based encoding (see Tip 8)\n\n\n\n## Skill Directory Contents\n\nThe following files are available in this skill. Use the `read` tool to explore them if needed.\n\n| File Path | Size |\n|-----------|------|\n| `/app/skills/chart_instructions/references/` | (dir) |\n| `/app/skills/chart_instructions/references/colors.md` | 2.3 KB |\n\n**To read a file**, use the `read` tool with `file_path` set to the full path shown above.\nExample: `{\"file_path\": \"/app/skills/chart_instructions/example.md\", \"offset\": 0, \"limit\": 100}`\n",
+            "skill_name": "chart_instructions"
+          },
+          "type": "json"
+        }
+      ],
+      "content_index": 5,
+      "name": "server_skill",
+      "sequence_number": 20,
+      "status": "success",
+      "tool_use_id": "toolu_bdrk_01VY484QEe6mxvtz58E5ABMC",
+      "type": "server_skill"
+    }
+  },
+  {
+    "event": "response.tool_use",
+    "data": {
+      "client_side_execute": false,
+      "content_index": 6,
+      "input": {
+        "chart": "{\"title\":\"Recommended Actions by Class\",\"mark\":\"arc\",\"encoding\":{\"theta\":{\"field\":\"NBA_COUNT\",\"type\":\"quantitative\"},\"color\":{\"field\":\"ACTION_CLASS\",\"type\":\"nominal\",\"title\":\"Action Class\"}}}",
+        "question": "THIS FIELD WILL BE DEPRECATED SOON. Please stop using it and use the 'chart' field instead.",
+        "tool_result_id": "tooluse_09f228e6acab4246b815e5"
+      },
+      "name": "data_to_chart",
+      "sequence_number": 26,
+      "tool_use_id": "toolu_bdrk_017Dj126nsEJ1oC9gK3E8thb",
+      "type": "data_to_chart"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Running data_to_chart",
+      "sequence_number": 27,
+      "status": "executing_tool",
+      "tool_type": "data_to_chart",
+      "tool_use_id": "toolu_bdrk_017Dj126nsEJ1oC9gK3E8thb"
+    }
+  },
+  {
+    "event": "response.tool_result",
+    "data": {
+      "content": [
+        {
+          "json": {
+            "charts": [
+              "{\"$schema\":\"https://vega.github.io/schema/vega-lite/v5.json\",\"config\":{\"bar\":{\"minBandSize\":5}},\"data\":{\"values\":[{\"ACTION_CLASS\":\"SALES\",\"NBA_COUNT\":2670},{\"ACTION_CLASS\":\"CARE\",\"NBA_COUNT\":908},{\"ACTION_CLASS\":\"RETENTION\",\"NBA_COUNT\":339}]},\"encoding\":{\"color\":{\"field\":\"ACTION_CLASS\",\"title\":\"Action Class\",\"type\":\"nominal\"},\"theta\":{\"field\":\"NBA_COUNT\",\"type\":\"quantitative\"},\"tooltip\":[{\"field\":\"ACTION_CLASS\",\"title\":\"Action Class\",\"type\":\"nominal\"},{\"field\":\"NBA_COUNT\",\"format\":\",.6~f\",\"title\":\"Nba_count\",\"type\":\"quantitative\"}]},\"mark\":\"arc\",\"title\":\"Recommended Actions by Class\",\"usermeta\":{\"snowflake\":{\"color_mapping\":{\"CARE\":{\"hex\":\"#4c78a8\",\"name\":\"blue\"},\"RETENTION\":{\"hex\":\"#f58518\",\"name\":\"orange\"},\"SALES\":{\"hex\":\"#e45756\",\"name\":\"red\"}},\"columnRoles\":{\"ACTION_CLASS\":\"dimension\",\"NBA_COUNT\":\"metric\",\"TOTAL_EXPECTED_VALUE_INR\":\"metric\"}}}}"
+            ]
+          },
+          "type": "json"
+        }
+      ],
+      "content_index": 7,
+      "name": "data_to_chart",
+      "sequence_number": 28,
+      "status": "success",
+      "tool_use_id": "toolu_bdrk_017Dj126nsEJ1oC9gK3E8thb",
+      "type": "data_to_chart"
+    }
+  },
+  {
+    "event": "response.text",
+    "data": {
+      "content_index": 8,
+      "sequence_number": 69,
+      "text": "Across the 3,917 published next-best-actions, the split is roughly **2.9 sales actions for every care action** — sales dominate the book:\n\n- **SALES — 2,670 actions (68.2%)**, propensity-weighted expected value Rs 44,37,035\n- **CARE — 908 actions (23.2%)**, expected value Rs 26,59,714\n- **RETENTION — 339 actions (8.7%)**, expected value Rs 80,606\n\n"
+    }
+  },
+  {
+    "event": "response.table",
+    "data": {
+      "content_index": 9,
+      "query_id": "01c6b80c-0002-897e-000e-981a000704a2",
+      "result_set": {
+        "data": [
+          [
+            "2670",
+            "4437035",
+            "SALES"
+          ],
+          [
+            "908",
+            "2659714",
+            "CARE"
+          ],
+          [
+            "339",
+            "80606",
+            "RETENTION"
+          ]
+        ],
+        "resultSetMetaData": {
+          "format": "jsonv2",
+          "numRows": 3,
+          "partition": 0,
+          "rowType": [
+            {
+              "length": 0,
+              "name": "NBA_COUNT",
+              "nullable": true,
+              "precision": 18,
+              "scale": 0,
+              "type": "fixed"
+            },
+            {
+              "length": 0,
+              "name": "TOTAL_EXPECTED_VALUE_INR",
+              "nullable": true,
+              "precision": 0,
+              "scale": 0,
+              "type": "real"
+            },
+            {
+              "length": 12,
+              "name": "ACTION_CLASS",
+              "nullable": true,
+              "precision": 0,
+              "scale": 0,
+              "type": "text"
+            }
+          ]
+        },
+        "statementHandle": "01c6b80c-0002-897e-000e-981a000704a2"
+      },
+      "sequence_number": 70,
+      "title": "Recommended actions by class",
+      "tool_use_id": "tooluse_09f228e6acab4246b815e5"
+    }
+  },
+  {
+    "event": "response.text",
+    "data": {
+      "content_index": 12,
+      "sequence_number": 105,
+      "text": "\n\nSo if you treat this as a two-way sales-vs-care split (setting retention aside), it's about **75% sales / 25% care** of the two combined; including retention as a third category, sales is just over two-thirds of everything recommended. Note the expected-value figures are propensity-weighted model quantities, not revenue that will arrive."
+    }
+  }
+]

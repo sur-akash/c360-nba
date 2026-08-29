@@ -1,0 +1,554 @@
+[
+  {
+    "event": "response.thinking",
+    "data": {
+      "content_index": 0,
+      "sequence_number": 13,
+      "text": "This is a product terms question, not a customer question. Use product_terms, filter on the Platinum card product. Search eligibility, fees, disclosures."
+    }
+  },
+  {
+    "event": "response.tool_use",
+    "data": {
+      "client_side_execute": false,
+      "content_index": 1,
+      "input": {
+        "analytical_search": false,
+        "columns": [
+          "CHUNK_ID",
+          "CHUNK_TEXT",
+          "CLAUSE_HEADING",
+          "SECTION",
+          "PRODUCT_NAME",
+          "PRODUCT_CODE"
+        ],
+        "filter": "{\"@and\":[{\"@eq\":{\"PRODUCT_CODE\":\"BNK_CARD_PLAT\"}},{\"@eq\":{\"SECTION\":\"DISCLOSURES\"}}]}",
+        "limit": 10,
+        "num_chunks_per_doc": 0,
+        "query": "Platinum credit card disclosures IRDAI RBI must disclose to customer"
+      },
+      "name": "product_terms",
+      "sequence_number": 16,
+      "tool_use_id": "toolu_bdrk_015bGVT7EnRUqR57LpXJkYxr",
+      "type": "cortex_search"
+    }
+  },
+  {
+    "event": "response.tool_use",
+    "data": {
+      "client_side_execute": false,
+      "content_index": 3,
+      "input": {
+        "analytical_search": false,
+        "columns": [
+          "CHUNK_ID",
+          "CHUNK_TEXT",
+          "CLAUSE_HEADING",
+          "SECTION",
+          "PRODUCT_NAME",
+          "PRODUCT_CODE"
+        ],
+        "filter": "{\"@and\":[{\"@eq\":{\"PRODUCT_CODE\":\"BNK_CARD_PLAT\"}},{\"@eq\":{\"SECTION\":\"FEES\"}}]}",
+        "limit": 10,
+        "num_chunks_per_doc": 0,
+        "query": "Platinum credit card fees annual fee interest charges"
+      },
+      "name": "product_terms",
+      "sequence_number": 17,
+      "tool_use_id": "toolu_bdrk_01DEkkzaVYVQwsTCgzk9dzzm",
+      "type": "cortex_search"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Running product_terms",
+      "sequence_number": 18,
+      "status": "executing_tool",
+      "tool_type": "cortex_search",
+      "tool_use_id": "toolu_bdrk_01DEkkzaVYVQwsTCgzk9dzzm"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Running product_terms",
+      "sequence_number": 19,
+      "status": "executing_tool",
+      "tool_type": "cortex_search",
+      "tool_use_id": "toolu_bdrk_015bGVT7EnRUqR57LpXJkYxr"
+    }
+  },
+  {
+    "event": "response.tool_use",
+    "data": {
+      "client_side_execute": false,
+      "content_index": 2,
+      "input": {
+        "analytical_search": false,
+        "columns": [
+          "CHUNK_ID",
+          "CHUNK_TEXT",
+          "CLAUSE_HEADING",
+          "SECTION",
+          "PRODUCT_NAME",
+          "PRODUCT_CODE"
+        ],
+        "filter": "{\"@and\":[{\"@eq\":{\"PRODUCT_CODE\":\"BNK_CARD_PLAT\"}},{\"@eq\":{\"SECTION\":\"ELIGIBILITY\"}}]}",
+        "limit": 10,
+        "num_chunks_per_doc": 0,
+        "query": "Platinum credit card eligibility criteria minimum age income"
+      },
+      "name": "product_terms",
+      "sequence_number": 20,
+      "tool_use_id": "toolu_bdrk_01SSUtUviyuKdJaB5cGq4HRk",
+      "type": "cortex_search"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Running product_terms",
+      "sequence_number": 21,
+      "status": "executing_tool",
+      "tool_type": "cortex_search",
+      "tool_use_id": "toolu_bdrk_01SSUtUviyuKdJaB5cGq4HRk"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Reviewing search results from product_terms",
+      "sequence_number": 22,
+      "status": "sending_search_results",
+      "tool_type": "cortex_search",
+      "tool_use_id": "toolu_bdrk_01DEkkzaVYVQwsTCgzk9dzzm"
+    }
+  },
+  {
+    "event": "response.tool_result",
+    "data": {
+      "content": [
+        {
+          "json": {
+            "search_results": [
+              {
+                "columns": {
+                  "PRODUCT_CODE": "BNK_CARD_PLAT",
+                  "PRODUCT_NAME": "Platinum Credit Card",
+                  "SECTION": "FEES"
+                },
+                "doc_id": "BNK_CARD_PLAT#FEES-01",
+                "doc_title": "Card fees and goods and services tax",
+                "id": "cs_5b0dff5b-855d-4862-8a14-d74ecaa13fab",
+                "search_service_name": "product_terms",
+                "source_id": 0,
+                "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nFEES clause FEES-01: Card fees and goods and services tax\n\nThe Aarohan Platinum Credit Card attracts annual membership fees, joining fees where applicable, and other charges as disclosed in the card fee schedule and the Most Important Terms and Conditions document provided at issuance. All fees, finance charges and interest levied on the Platinum Credit Card account are subject to Goods and Services Tax at the rate of 18 percent, which is charged in addition to the base fee or interest amount."
+              },
+              {
+                "columns": {
+                  "PRODUCT_CODE": "BNK_CARD_PLAT",
+                  "PRODUCT_NAME": "Platinum Credit Card",
+                  "SECTION": "FEES"
+                },
+                "doc_id": "BNK_CARD_PLAT#FEES-02",
+                "doc_title": "Penal charges for late payment and other defaults",
+                "id": "cs_5a463991-33d5-4987-ae57-9590ef1f67ab",
+                "search_service_name": "product_terms",
+                "source_id": 1,
+                "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nFEES clause FEES-02: Penal charges for late payment and other defaults\n\nLate payment charges, over-limit fees and other penal charges applicable to the Aarohan Platinum Credit Card are levied as charges to the card account and are not capitalised as interest. The schedule of penal charges is disclosed in the Most Important Terms and Conditions document. All penal charges are subject to Goods and Services Tax at 18 percent and are reported in the monthly billing statement."
+              }
+            ],
+            "search_results_persist": {}
+          },
+          "type": "json"
+        }
+      ],
+      "content_index": 4,
+      "name": "product_terms",
+      "sequence_number": 23,
+      "status": "success",
+      "tool_use_id": "toolu_bdrk_01DEkkzaVYVQwsTCgzk9dzzm",
+      "type": "cortex_search"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Reviewing search results from product_terms",
+      "sequence_number": 24,
+      "status": "sending_search_results",
+      "tool_type": "cortex_search",
+      "tool_use_id": "toolu_bdrk_015bGVT7EnRUqR57LpXJkYxr"
+    }
+  },
+  {
+    "event": "response.tool_result",
+    "data": {
+      "content": [
+        {
+          "json": {
+            "search_results": [
+              {
+                "columns": {
+                  "PRODUCT_CODE": "BNK_CARD_PLAT",
+                  "PRODUCT_NAME": "Platinum Credit Card",
+                  "SECTION": "DISCLOSURES"
+                },
+                "doc_id": "BNK_CARD_PLAT#DISC-03",
+                "doc_title": "Grievance redressal and regulatory compliance",
+                "id": "cs_d806ad0a-19d6-442b-823c-6f381cc0af39",
+                "search_service_name": "product_terms",
+                "source_id": 2,
+                "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nDISCLOSURES clause DISC-03: Grievance redressal and regulatory compliance\n\nThe Aarohan Platinum Credit Card is issued and operated in accordance with the Reserve Bank of India Master Direction on Credit Card and Debit Card issuance and conduct. Cardholders may raise grievances or complaints through the channels disclosed in the welcome kit and on the Aarohan website. If the grievance is not resolved satisfactorily, cardholders may escalate the matter to the Banking Ombudsman or the RBI-integrated ombudsman scheme as applicable under the regulatory framework."
+              },
+              {
+                "columns": {
+                  "PRODUCT_CODE": "BNK_CARD_PLAT",
+                  "PRODUCT_NAME": "Platinum Credit Card",
+                  "SECTION": "DISCLOSURES"
+                },
+                "doc_id": "BNK_CARD_PLAT#DISC-02",
+                "doc_title": "Account closure and credit bureau reporting",
+                "id": "cs_d24e24d7-8915-4774-b637-9f442927d113",
+                "search_service_name": "product_terms",
+                "source_id": 3,
+                "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nDISCLOSURES clause DISC-02: Account closure and credit bureau reporting\n\nCardholders may request closure of the Aarohan Platinum Credit Card account at any time, and Aarohan will close the account within seven working days of receiving a valid closure request, subject to settlement of all outstanding dues. The card account conduct, payment history and outstanding balances are reported to credit information companies including Credit Information Bureau India Limited, and this reporting continues throughout the life of the account and after closure in accordance with RBI regulations."
+              },
+              {
+                "columns": {
+                  "PRODUCT_CODE": "BNK_CARD_PLAT",
+                  "PRODUCT_NAME": "Platinum Credit Card",
+                  "SECTION": "DISCLOSURES"
+                },
+                "doc_id": "BNK_CARD_PLAT#DISC-01",
+                "doc_title": "Minimum payment and finance charge implications",
+                "id": "cs_eb2e2c84-7801-4a14-af68-73f5ed89f3f0",
+                "search_service_name": "product_terms",
+                "source_id": 4,
+                "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nDISCLOSURES clause DISC-01: Minimum payment and finance charge implications\n\nIf the cardholder of the Aarohan Platinum Credit Card pays only the minimum amount due as shown on the monthly statement, the outstanding balance will remain subject to finance charges on the entire amount, and repayment of the principal will extend over a significantly longer period, potentially spanning several years. Cardholders are encouraged to pay the total amount due in full by the payment due date to avoid finance charges and minimise the cost of credit."
+              }
+            ],
+            "search_results_persist": {}
+          },
+          "type": "json"
+        }
+      ],
+      "content_index": 5,
+      "name": "product_terms",
+      "sequence_number": 25,
+      "status": "success",
+      "tool_use_id": "toolu_bdrk_015bGVT7EnRUqR57LpXJkYxr",
+      "type": "cortex_search"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Reviewing search results from product_terms",
+      "sequence_number": 26,
+      "status": "sending_search_results",
+      "tool_type": "cortex_search",
+      "tool_use_id": "toolu_bdrk_01SSUtUviyuKdJaB5cGq4HRk"
+    }
+  },
+  {
+    "event": "response.tool_result",
+    "data": {
+      "content": [
+        {
+          "json": {
+            "search_results": [
+              {
+                "columns": {
+                  "PRODUCT_CODE": "BNK_CARD_PLAT",
+                  "PRODUCT_NAME": "Platinum Credit Card",
+                  "SECTION": "ELIGIBILITY"
+                },
+                "doc_id": "BNK_CARD_PLAT#ELIG-02",
+                "doc_title": "Income and affordability criteria",
+                "id": "cs_e7117018-0773-46f1-9e78-74e18f93ce8c",
+                "search_service_name": "product_terms",
+                "source_id": 5,
+                "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-02: Income and affordability criteria\n\nTo qualify for the Aarohan Platinum Credit Card, an applicant must demonstrate annual income falling within band 4 or higher, which corresponds to annual income of INR 15 lakh to INR 30 lakh. Applicants whose annual income falls below band 4 or below INR 15 lakh per annum do not meet the minimum income threshold for this product."
+              },
+              {
+                "columns": {
+                  "PRODUCT_CODE": "BNK_CARD_PLAT",
+                  "PRODUCT_NAME": "Platinum Credit Card",
+                  "SECTION": "ELIGIBILITY"
+                },
+                "doc_id": "BNK_CARD_PLAT#ELIG-01",
+                "doc_title": "Age requirement for Platinum Credit Card",
+                "id": "cs_fbbac8cc-b87b-4ac8-be22-bda436b53184",
+                "search_service_name": "product_terms",
+                "source_id": 6,
+                "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-01: Age requirement for Platinum Credit Card\n\nThe Aarohan Platinum Credit Card is available to individuals who are at least 25 years of age at the time of application and not more than 65 years of age at entry. Applicants falling outside this age range of 25 to 65 years are not eligible to apply for or be issued the Platinum Credit Card under any circumstances."
+              },
+              {
+                "columns": {
+                  "PRODUCT_CODE": "BNK_CARD_PLAT",
+                  "PRODUCT_NAME": "Platinum Credit Card",
+                  "SECTION": "ELIGIBILITY"
+                },
+                "doc_id": "BNK_CARD_PLAT#ELIG-04",
+                "doc_title": "Credit conduct and arrears position",
+                "id": "cs_f91e8aaf-0448-41c3-9ed0-3a700078e4f5",
+                "search_service_name": "product_terms",
+                "source_id": 7,
+                "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-04: Credit conduct and arrears position\n\nThe Aarohan Platinum Credit Card is available only to applicants whose payment record across all obligations with the Aarohan group shows no more than 30 days past due at the time of application. Additionally, customers who have been flagged as vulnerable by the group's vulnerability assessment are not eligible for this product and will not be offered the Platinum Credit Card under any circumstances."
+              },
+              {
+                "columns": {
+                  "PRODUCT_CODE": "BNK_CARD_PLAT",
+                  "PRODUCT_NAME": "Platinum Credit Card",
+                  "SECTION": "ELIGIBILITY"
+                },
+                "doc_id": "BNK_CARD_PLAT#ELIG-03",
+                "doc_title": "Relationship tenure and KYC verification",
+                "id": "cs_4d571a82-aee5-433e-a301-de5b0c114fc6",
+                "search_service_name": "product_terms",
+                "source_id": 8,
+                "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-03: Relationship tenure and KYC verification\n\nApplicants for the Aarohan Platinum Credit Card must have maintained a relationship with the Aarohan group for a minimum continuous period of 12 months prior to application. Additionally, the applicant's Know Your Customer status must be classified as VERIFIED in the group's records. Applications from customers not meeting both the 12-month tenure and VERIFIED KYC status will be declined."
+              }
+            ],
+            "search_results_persist": {}
+          },
+          "type": "json"
+        }
+      ],
+      "content_index": 6,
+      "name": "product_terms",
+      "sequence_number": 27,
+      "status": "success",
+      "tool_use_id": "toolu_bdrk_01SSUtUviyuKdJaB5cGq4HRk",
+      "type": "cortex_search"
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "BNK_CARD_PLAT#ELIG-01",
+        "doc_title": "Age requirement for Platinum Credit Card",
+        "index": 256,
+        "search_result_id": "cs_fbbac8cc-b87b-4ac8-be22-bda436b53184",
+        "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-01: Age requirement for Platinum Credit Card\n\nThe Aarohan Platinum Credit Card is available to individuals who are at least 25 years of age at the time of application and not more than 65 years of age at entry. Applicants falling outside this age range of 25 to 65 years are not eligible to apply for or be issued the Platinum Credit Card under any circumstances.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 1,
+      "content_index": 7,
+      "sequence_number": 53
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "BNK_CARD_PLAT#ELIG-02",
+        "doc_title": "Income and affordability criteria",
+        "index": 426,
+        "search_result_id": "cs_e7117018-0773-46f1-9e78-74e18f93ce8c",
+        "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-02: Income and affordability criteria\n\nTo qualify for the Aarohan Platinum Credit Card, an applicant must demonstrate annual income falling within band 4 or higher, which corresponds to annual income of INR 15 lakh to INR 30 lakh. Applicants whose annual income falls below band 4 or below INR 15 lakh per annum do not meet the minimum income threshold for this product.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 2,
+      "content_index": 7,
+      "sequence_number": 67
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "BNK_CARD_PLAT#ELIG-03",
+        "doc_title": "Relationship tenure and KYC verification",
+        "index": 605,
+        "search_result_id": "cs_4d571a82-aee5-433e-a301-de5b0c114fc6",
+        "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-03: Relationship tenure and KYC verification\n\nApplicants for the Aarohan Platinum Credit Card must have maintained a relationship with the Aarohan group for a minimum continuous period of 12 months prior to application. Additionally, the applicant's Know Your Customer status must be classified as VERIFIED in the group's records. Applications from customers not meeting both the 12-month tenure and VERIFIED KYC status will be declined.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 3,
+      "content_index": 7,
+      "sequence_number": 81
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "BNK_CARD_PLAT#ELIG-04",
+        "doc_title": "Credit conduct and arrears position",
+        "index": 858,
+        "search_result_id": "cs_f91e8aaf-0448-41c3-9ed0-3a700078e4f5",
+        "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-04: Credit conduct and arrears position\n\nThe Aarohan Platinum Credit Card is available only to applicants whose payment record across all obligations with the Aarohan group shows no more than 30 days past due at the time of application. Additionally, customers who have been flagged as vulnerable by the group's vulnerability assessment are not eligible for this product and will not be offered the Platinum Credit Card under any circumstances.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 4,
+      "content_index": 7,
+      "sequence_number": 93
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "BNK_CARD_PLAT#FEES-01",
+        "doc_title": "Card fees and goods and services tax",
+        "index": 1198,
+        "search_result_id": "cs_5b0dff5b-855d-4862-8a14-d74ecaa13fab",
+        "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nFEES clause FEES-01: Card fees and goods and services tax\n\nThe Aarohan Platinum Credit Card attracts annual membership fees, joining fees where applicable, and other charges as disclosed in the card fee schedule and the Most Important Terms and Conditions document provided at issuance. All fees, finance charges and interest levied on the Platinum Credit Card account are subject to Goods and Services Tax at the rate of 18 percent, which is charged in addition to the base fee or interest amount.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 5,
+      "content_index": 7,
+      "sequence_number": 115
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "BNK_CARD_PLAT#FEES-02",
+        "doc_title": "Penal charges for late payment and other defaults",
+        "index": 1462,
+        "search_result_id": "cs_5a463991-33d5-4987-ae57-9590ef1f67ab",
+        "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nFEES clause FEES-02: Penal charges for late payment and other defaults\n\nLate payment charges, over-limit fees and other penal charges applicable to the Aarohan Platinum Credit Card are levied as charges to the card account and are not capitalised as interest. The schedule of penal charges is disclosed in the Most Important Terms and Conditions document. All penal charges are subject to Goods and Services Tax at 18 percent and are reported in the monthly billing statement.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 6,
+      "content_index": 7,
+      "sequence_number": 128
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "BNK_CARD_PLAT#DISC-01",
+        "doc_title": "Minimum payment and finance charge implications",
+        "index": 1813,
+        "search_result_id": "cs_eb2e2c84-7801-4a14-af68-73f5ed89f3f0",
+        "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nDISCLOSURES clause DISC-01: Minimum payment and finance charge implications\n\nIf the cardholder of the Aarohan Platinum Credit Card pays only the minimum amount due as shown on the monthly statement, the outstanding balance will remain subject to finance charges on the entire amount, and repayment of the principal will extend over a significantly longer period, potentially spanning several years. Cardholders are encouraged to pay the total amount due in full by the payment due date to avoid finance charges and minimise the cost of credit.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 7,
+      "content_index": 7,
+      "sequence_number": 150
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "BNK_CARD_PLAT#DISC-02",
+        "doc_title": "Account closure and credit bureau reporting",
+        "index": 2159,
+        "search_result_id": "cs_d24e24d7-8915-4774-b637-9f442927d113",
+        "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nDISCLOSURES clause DISC-02: Account closure and credit bureau reporting\n\nCardholders may request closure of the Aarohan Platinum Credit Card account at any time, and Aarohan will close the account within seven working days of receiving a valid closure request, subject to settlement of all outstanding dues. The card account conduct, payment history and outstanding balances are reported to credit information companies including Credit Information Bureau India Limited, and this reporting continues throughout the life of the account and after closure in accordance with RBI regulations.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 8,
+      "content_index": 7,
+      "sequence_number": 171
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "BNK_CARD_PLAT#DISC-03",
+        "doc_title": "Grievance redressal and regulatory compliance",
+        "index": 2509,
+        "search_result_id": "cs_d806ad0a-19d6-442b-823c-6f381cc0af39",
+        "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nDISCLOSURES clause DISC-03: Grievance redressal and regulatory compliance\n\nThe Aarohan Platinum Credit Card is issued and operated in accordance with the Reserve Bank of India Master Direction on Credit Card and Debit Card issuance and conduct. Cardholders may raise grievances or complaints through the channels disclosed in the welcome kit and on the Aarohan website. If the grievance is not resolved satisfactorily, cardholders may escalate the matter to the Banking Ombudsman or the RBI-integrated ombudsman scheme as applicable under the regulatory framework.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 9,
+      "content_index": 7,
+      "sequence_number": 196
+    }
+  },
+  {
+    "event": "response.text",
+    "data": {
+      "annotations": [
+        {
+          "doc_id": "BNK_CARD_PLAT#ELIG-01",
+          "doc_title": "Age requirement for Platinum Credit Card",
+          "index": 256,
+          "search_result_id": "cs_fbbac8cc-b87b-4ac8-be22-bda436b53184",
+          "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-01: Age requirement for Platinum Credit Card\n\nThe Aarohan Platinum Credit Card is available to individuals who are at least 25 years of age at the time of application and not more than 65 years of age at entry. Applicants falling outside this age range of 25 to 65 years are not eligible to apply for or be issued the Platinum Credit Card under any circumstances.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "BNK_CARD_PLAT#ELIG-02",
+          "doc_title": "Income and affordability criteria",
+          "index": 426,
+          "search_result_id": "cs_e7117018-0773-46f1-9e78-74e18f93ce8c",
+          "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-02: Income and affordability criteria\n\nTo qualify for the Aarohan Platinum Credit Card, an applicant must demonstrate annual income falling within band 4 or higher, which corresponds to annual income of INR 15 lakh to INR 30 lakh. Applicants whose annual income falls below band 4 or below INR 15 lakh per annum do not meet the minimum income threshold for this product.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "BNK_CARD_PLAT#ELIG-03",
+          "doc_title": "Relationship tenure and KYC verification",
+          "index": 605,
+          "search_result_id": "cs_4d571a82-aee5-433e-a301-de5b0c114fc6",
+          "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-03: Relationship tenure and KYC verification\n\nApplicants for the Aarohan Platinum Credit Card must have maintained a relationship with the Aarohan group for a minimum continuous period of 12 months prior to application. Additionally, the applicant's Know Your Customer status must be classified as VERIFIED in the group's records. Applications from customers not meeting both the 12-month tenure and VERIFIED KYC status will be declined.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "BNK_CARD_PLAT#ELIG-04",
+          "doc_title": "Credit conduct and arrears position",
+          "index": 858,
+          "search_result_id": "cs_f91e8aaf-0448-41c3-9ed0-3a700078e4f5",
+          "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nELIGIBILITY clause ELIG-04: Credit conduct and arrears position\n\nThe Aarohan Platinum Credit Card is available only to applicants whose payment record across all obligations with the Aarohan group shows no more than 30 days past due at the time of application. Additionally, customers who have been flagged as vulnerable by the group's vulnerability assessment are not eligible for this product and will not be offered the Platinum Credit Card under any circumstances.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "BNK_CARD_PLAT#FEES-01",
+          "doc_title": "Card fees and goods and services tax",
+          "index": 1198,
+          "search_result_id": "cs_5b0dff5b-855d-4862-8a14-d74ecaa13fab",
+          "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nFEES clause FEES-01: Card fees and goods and services tax\n\nThe Aarohan Platinum Credit Card attracts annual membership fees, joining fees where applicable, and other charges as disclosed in the card fee schedule and the Most Important Terms and Conditions document provided at issuance. All fees, finance charges and interest levied on the Platinum Credit Card account are subject to Goods and Services Tax at the rate of 18 percent, which is charged in addition to the base fee or interest amount.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "BNK_CARD_PLAT#FEES-02",
+          "doc_title": "Penal charges for late payment and other defaults",
+          "index": 1462,
+          "search_result_id": "cs_5a463991-33d5-4987-ae57-9590ef1f67ab",
+          "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nFEES clause FEES-02: Penal charges for late payment and other defaults\n\nLate payment charges, over-limit fees and other penal charges applicable to the Aarohan Platinum Credit Card are levied as charges to the card account and are not capitalised as interest. The schedule of penal charges is disclosed in the Most Important Terms and Conditions document. All penal charges are subject to Goods and Services Tax at 18 percent and are reported in the monthly billing statement.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "BNK_CARD_PLAT#DISC-01",
+          "doc_title": "Minimum payment and finance charge implications",
+          "index": 1813,
+          "search_result_id": "cs_eb2e2c84-7801-4a14-af68-73f5ed89f3f0",
+          "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nDISCLOSURES clause DISC-01: Minimum payment and finance charge implications\n\nIf the cardholder of the Aarohan Platinum Credit Card pays only the minimum amount due as shown on the monthly statement, the outstanding balance will remain subject to finance charges on the entire amount, and repayment of the principal will extend over a significantly longer period, potentially spanning several years. Cardholders are encouraged to pay the total amount due in full by the payment due date to avoid finance charges and minimise the cost of credit.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "BNK_CARD_PLAT#DISC-02",
+          "doc_title": "Account closure and credit bureau reporting",
+          "index": 2159,
+          "search_result_id": "cs_d24e24d7-8915-4774-b637-9f442927d113",
+          "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nDISCLOSURES clause DISC-02: Account closure and credit bureau reporting\n\nCardholders may request closure of the Aarohan Platinum Credit Card account at any time, and Aarohan will close the account within seven working days of receiving a valid closure request, subject to settlement of all outstanding dues. The card account conduct, payment history and outstanding balances are reported to credit information companies including Credit Information Bureau India Limited, and this reporting continues throughout the life of the account and after closure in accordance with RBI regulations.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "BNK_CARD_PLAT#DISC-03",
+          "doc_title": "Grievance redressal and regulatory compliance",
+          "index": 2509,
+          "search_result_id": "cs_d806ad0a-19d6-442b-823c-6f381cc0af39",
+          "text": "Platinum Credit Card (BNK_CARD_PLAT) — Banking / Card\nDISCLOSURES clause DISC-03: Grievance redressal and regulatory compliance\n\nThe Aarohan Platinum Credit Card is issued and operated in accordance with the Reserve Bank of India Master Direction on Credit Card and Debit Card issuance and conduct. Cardholders may raise grievances or complaints through the channels disclosed in the welcome kit and on the Aarohan website. If the grievance is not resolved satisfactorily, cardholders may escalate the matter to the Banking Ombudsman or the RBI-integrated ombudsman scheme as applicable under the regulatory framework.",
+          "type": "cortex_search_citation"
+        }
+      ],
+      "content_index": 7,
+      "sequence_number": 221,
+      "text": "Here are the terms for the Aarohan **Platinum Credit Card** (BNK_CARD_PLAT), grouped as you asked.\n\n**Eligibility criteria**\n- **Age:** applicant must be at least 25 and not more than 65 at entry; anyone outside 25–65 is ineligible under any circumstances.\n- **Income:** annual income must fall in band 4 or higher, i.e. INR 15 lakh to INR 30 lakh; applicants below band 4 / below INR 15,00,000 p.a. do not meet the threshold.\n- **Relationship tenure and KYC:** a minimum continuous relationship of 12 months with the group, and KYC status classified as VERIFIED; applications failing either are declined.\n- **Credit conduct and arrears:** payment record across all group obligations must show no more than 30 days past due at application. Separately, customers flagged as vulnerable are not eligible and will not be offered the card under any circumstances.\n\n**Fees**\n- **Membership and charges + GST:** annual membership fees, joining fees where applicable, and other charges apply as set out in the fee schedule and the Most Important Terms and Conditions (MITC) document at issuance. All fees, finance charges and interest carry Goods and Services Tax at 18%, charged on top of the base amount.\n- **Penal charges:** late payment charges, over-limit fees and other penal charges are levied to the card account and are not capitalised as interest; the schedule is in the MITC document, all are subject to 18% GST and are shown in the monthly billing statement.\n\n**What must be disclosed to the customer**\n- **Minimum-payment / finance-charge warning:** if the cardholder pays only the minimum amount due, the outstanding balance continues to attract finance charges and repayment of principal can extend over several years; customers are encouraged to pay in full by the due date to minimise the cost of credit.\n- **Account closure and credit-bureau reporting:** closure can be requested at any time and is completed within seven working days subject to settlement of dues; account conduct, payment history and balances are reported to credit information companies (including CIBIL) throughout the life of the account and after closure, per RBI regulations.\n- **Grievance redressal and regulatory compliance:** the card is issued and operated under the RBI Master Direction on Credit Card and Debit Card issuance and conduct; grievances go through the channels in the welcome kit and on the Aarohan website, and unresolved matters may be escalated to the Banking Ombudsman / RBI-integrated ombudsman scheme.\n\nA note on scope: these are the product's own criteria. Whether a specific named customer may actually be offered the card also depends on the do-not-contact register, open complaints, vulnerability flags and current arrears — that verdict comes only from the recommendation engine, not from these clauses. If you have a particular customer in mind, tell me their ID and I'll check."
+    }
+  }
+]

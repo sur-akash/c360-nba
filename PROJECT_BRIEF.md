@@ -245,8 +245,9 @@ sql/
   22_gold_eligibility.sql     GOLD.ELIGIBILITY_TRACE, GOLD.DO_NOT_CONTACT
   23_gold_ev.sql              GOLD.NBA_CANDIDATE — deterministic EV, no AI
   24_gold_nba_ranked.sql      GOLD.NBA_RANKED — reasons + evidence
-  30_semantic_view.sql        APP.C360_SV
-  31_agent.sql                APP.NBA_ADVISOR
+  16_semantic_view_nba.sql    GOLD.SV_CUSTOMER_360  (was scoped as 30_semantic_view)
+  17_nba_tool.sql             APP.GET_NEXT_BEST_ACTIONS, the agent's action tool
+  18_agent.sql                APP.RM_COPILOT        (was scoped as 31_agent)
   32_streamlit.sql            APP.C360_APP  (needs app files staged first)
   90_verify.sql               assertions across every layer
   99_teardown.sql             drop everything
@@ -276,6 +277,22 @@ consequences worth noting, since none is obvious from the numbers alone:
   splitting them across three files would mean three files that cannot be run
   independently anyway. Calls stay separate in `04` because the audio path is
   genuinely independent — see D1.
+
+- **The semantic view moved OUT of `09` and into `16`, and it had to.** `09` was
+  written to create `GOLD.SV_CUSTOMER_360` over the spine and four facts, and
+  deliberately excluded `GOLD.NEXT_BEST_ACTION` because the table then held
+  placeholder propensities. M9 added the engine to the model, which needs
+  `GOLD.NBA_ELIGIBLE` (created at `12`, and the only place suppression is
+  recorded) and `GOLD.V_NEXT_BEST_ACTION_AUDIT` (created at `15`). A feeder view
+  over a table that does not exist yet fails at CREATE, so the definition could
+  not stay at `09`; and `ALTER SEMANTIC VIEW` changes only the comment, the tags
+  and the materializations, so there was no incremental path either. The choice
+  was between duplicating ~830 lines of definition and moving it. `09` now
+  creates the five `V_SV_` shims and one assertion; `16` is the single
+  authoritative definition and carries the three `SEMANTIC_VIEW()` assertions
+  that used to live in `09` §3.2–3.4. `09`'s A2 assertion — "`NEXT_BEST_ACTION`
+  is not referenced" — was deleted in the same commit that added the table, which
+  is what its own comment asked for.
 
 - **The unstructured layer landed at `04`–`07`, not at `04`/`13`/`14`/`15`.** The
   original numbering put text generation at `04_raw_calls.sql` and enrichment in
@@ -615,6 +632,57 @@ that to "stable" would read a deteriorating relationship as a calm one.
 
 ---
 
+### D7. The DNC registry is waived for servicing obligations; channel consent is not
+
+TRAI TCCCPR restricts the DNC/NCPR registry to **promotional** contact — transactional
+and servicing communication sits outside it. Two of the eighteen actions in
+`GOLD.ACTION_CATALOG` discharge a named regulatory obligation rather than pursuing a
+commercial outcome, and they carry `IS_SERVICING_OBLIGATION = TRUE`:
+
+| Action | Obligation |
+|---|---|
+| `COLLECTIONS_HARDSHIP_OUTREACH` | RBI Fair Practices Code hardship review |
+| `COMPLAINT_RESOLUTION_CALLBACK` | IRDAI grievance acknowledgement and resolution timelines |
+
+`sql/12_nba_eligibility.sql` waives `GLOBAL_DNC` for those two. Under the literal
+reading 67 of 200 hardship customers and 118 of 229 grievance callbacks were fully
+suppressed — people in rising arrears, and people with unresolved severity-3+
+grievances, receiving no action at all.
+
+**`GLOBAL_CHANNEL_CONSENT` is NOT waived, on evidence rather than caution.** The
+schema was asked whether consent is scoped to promotional contact, the same question
+that decided the CALL/SMS-vs-EMAIL split for `DNC_FLAG`. It is not: `RAW.CONSENT` has
+no purpose column at all (`CHANNEL`, `OPT_IN_FLAG`, `DNC_FLAG`, `VALID_FROM`,
+`VALID_TO`, `CONSENT_SOURCE`), `CUSTOMER_360.CONSENT_CALL` documents itself as
+"Permission to contact by call … opted in AND not DNC AND inside the consent validity
+window, all three" — two of those three components carrying no purpose qualifier — and
+`CONSENT_SOURCE` is capture provenance, not scope, with `TRAI_DNC_REGISTRY` merely one
+of six sources feeding it. Consent reads as a blanket contact permission, and waiving
+it would mean inventing a scope the model does not have.
+
+So the exemption is exactly as wide as the evidence supports: **DNC yes, consent no.**
+
+**The recovery is much smaller than it looks, for a structural reason worth recording.**
+The waiver applied to 121 rows but recovered only **34** (17 hardship + 17 grievance);
+87 stayed blocked. `CONSENT_CALL` is *defined* as `opted in AND NOT DNC AND in-window`,
+so a customer with a DNC marker on the CALL channel already has `CONSENT_CALL = false`
+by construction — waiving DNC while holding consent cannot help them. The 34 recovered
+are those whose DNC marker sits on SMS while call consent survives. An estimate of
+~185 was made before measuring and was wrong by 5×; the lesson is the same one as R8's,
+which is that a suppression estimate derived from a rule's own predicate ignores how
+correlated the rules are with each other.
+
+Eligible rows moved 4,074 → 4,108 and customers with at least one action 2,300 → 2,334.
+A customer with a hardship need and no live consent on any channel still receives no
+action, which is the right answer to a question about contactability rather than a
+failure of the engine.
+
+The waiver is auditable, not silent: the trace carries `verdict = 'EXEMPT'` with its
+justification inline, `RULES_EXEMPT` is a **separate array** from
+`RULES_NOT_APPLICABLE` (a rule that did not apply and a rule that applied and was
+deliberately waived are different compliance facts), and check `12.4.8` asserts that no
+servicing obligation ever became eligible without consent on its channel.
+
 ---
 
 ## 10. Build milestones
@@ -632,8 +700,8 @@ Dependencies are strict: a milestone may not start until its predecessors are gr
 | **M5** | Eligibility and EV | `sql/21_gold_actions.sql` → `GOLD.ACTION_CATALOGUE` (margin and eligibility thresholds come from `RAW.PRODUCT_CATALOG`); `sql/22_gold_eligibility.sql` → `GOLD.ELIGIBILITY_TRACE`, `GOLD.DO_NOT_CONTACT`; `sql/23_gold_ev.sql` → `GOLD.NBA_CANDIDATE`. **Deterministic SQL only, no AI.** | M4 |
 | **M6** | Reasons and evidence | `sql/24_gold_nba_ranked.sql` → `GOLD.NBA_RANKED`. `claude-opus-5` structured output on the demo slice, template elsewhere, `REASON_SOURCE` recorded. Optional `AI_REDACT` on prompt inputs per R1. | M5, M7 |
 | **M7** | Retrieval | `sql/19_search_service.sql` → `APP.INTERACTION_SEARCH` (Cortex Search over transcripts and notes, `snowflake-arctic-embed-l-v2.0`, in-region) | M3 |
-| **M8** | Analytical layer | `sql/30_semantic_view.sql` → `APP.C360_SV` over spine, features, `NBA_RANKED`, `DO_NOT_CONTACT`; verified queries | M5, M6 |
-| **M9** | Agent | `sql/31_agent.sql` → `APP.NBA_ADVISOR` with `cortex_analyst_text_to_sql` → `APP.C360_SV`, `cortex_search` → `APP.INTERACTION_SEARCH`, `data_to_chart`; `GRANT USAGE ON AGENT` to the demo user's default role | M7, M8 |
+| **M8** | Analytical layer | `sql/09_semantic_view.sql` → the five `GOLD.V_SV_*` shims; `sql/16_semantic_view_nba.sql` → `GOLD.SV_CUSTOMER_360` over the spine, four book facts and the engine's two grains, with eleven `AI_VERIFIED_QUERIES`. **(applied)** | M5, M6 |
+| **M9** | Agent | `sql/17_nba_tool.sql` → `APP.GET_NEXT_BEST_ACTIONS` + `APP.FORMAT_INR`; `sql/18_agent.sql` → `APP.RM_COPILOT` with `cortex_analyst_text_to_sql` → `GOLD.SV_CUSTOMER_360`, `cortex_search` → both services, and the custom NBA tool. `data_to_chart` deliberately not attached. `sql/18b_agent_grants_admin.sql` carries the one grant COCO_BUILDER cannot make (`GRANT ROLE COCO_BUILDER TO ROLE SYSADMIN`), because agents resolve privileges from the querying user's **default** role. **(applied)** | M7, M8 |
 | **M10** | Application | `app/streamlit_app.py`, stage copy, `sql/32_streamlit.sql` → `APP.C360_APP` + `ALTER STREAMLIT … ADD LIVE VERSION FROM LAST`. Three views: agent desk, RM book, portfolio + do-not-contact. No external packages (no `CREATE INTEGRATION` available). | M9 |
 | **M11** | Verification | `sql/90_verify.sql` — row counts, null rates, referential integrity, and a hard assertion that no suppressed customer appears as eligible. `evals/` — NBA scored against the hidden segment, Analyst questions with expected answers. | M10 |
 | **M12** | Teardown and docs | `sql/99_teardown.sql`, `run.sh`, `docs/README.md` | M11 |

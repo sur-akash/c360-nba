@@ -1,0 +1,226 @@
+{
+  "_comment": [
+    "Question set for evals/run_analyst_evals.py. Twenty questions: the fifteen from",
+    "analyst_questions.md re-run unaltered as a regression suite over the relocated and",
+    "extended model, plus five on the engine that sql/16 made expressible.",
+    "",
+    "probes are numbers that MUST appear somewhere in the executed result set. They are",
+    "not a full result comparison, deliberately: Analyst is free to name columns, order",
+    "rows and add companion metrics as it sees fit, and asserting on shape would fail on",
+    "cosmetic variation while saying nothing about correctness. A probe asserts the thing",
+    "that matters -- that the number the business asked for came back.",
+    "",
+    "Percentages are stored as the fraction the model returns (0.0832, not 8.32), because",
+    "that is what the metric computes; the runner also tries the x100 form so a question",
+    "answered as a percentage still passes.",
+    "",
+    "anchor_dependent marks the four questions whose expected values move if",
+    "GOLD.C360_ASOF moves. They are still asserted, so a moved anchor produces an",
+    "explicit failure with both numbers rather than silent drift."
+  ],
+  "semantic_view": "C360_NBA.GOLD.SV_CUSTOMER_360",
+  "anchor": "2026-08-28",
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "How many customers do we have and what is the average relationship value?",
+      "probes": [
+        5000,
+        56574.36
+      ],
+      "note": "Baseline. Two metrics off the spine, no filter."
+    },
+    {
+      "id": "Q2",
+      "question": "Which five cities have the highest total relationship value?",
+      "probes": [
+        16601000,
+        16064000,
+        16030000
+      ],
+      "tolerance": 0.001,
+      "note": "Top-N with a dimension. Probes are the top three city totals to 0.1%, because the doc rounded them to two decimal places of a million."
+    },
+    {
+      "id": "Q3",
+      "question": "What is our lapse rate overall, and how does it vary by policy type?",
+      "probes": [
+        0.099104,
+        0.090746,
+        0.0
+      ],
+      "tolerance": 0.001,
+      "note": "Probes are the per-type rates: TERM 9.91%, HEALTH 9.07%, HOME 0.00%. The overall 8.32% was originally probed and is NOT asserted, because Analyst answers this with a policy_type breakdown and no total row -- the overall rate is derivable from the lapsed and total counts it returns per type but is not stated. That is a mild incompleteness against a two-part question, recorded in analyst_questions.md rather than hidden by loosening the probe. HOME reads 0.00% and that is a seeding artifact, not a bug -- see analyst_questions.md \u00a74."
+    },
+    {
+      "id": "Q4",
+      "question": "How many policies are at risk in the next 30 days, and how much annual premium is at stake?",
+      "probes": [
+        420,
+        56861700
+      ],
+      "anchor_dependent": true,
+      "note": "The pairing rule: policies_at_risk_30d is meaningless without premium_at_risk_30d."
+    },
+    {
+      "id": "Q5",
+      "question": "What is our total arrears exposure and what share of the loan book does that represent?",
+      "probes": [
+        521397600,
+        4155304200,
+        0.125477
+      ],
+      "tolerance": 0.0001,
+      "anchor_dependent": true
+    },
+    {
+      "id": "Q6",
+      "question": "Break down arrears by DPD bucket - how many loans and how much exposure in each?",
+      "probes": [
+        2654,
+        3633906600
+      ],
+      "anchor_dependent": true,
+      "requires_metrics": [
+        "total_outstanding_inr",
+        "arrears_exposure_inr"
+      ],
+      "note": "3,633,906,600 is the outstanding balance in the CURRENT bucket, and it is the probe that matters: it is exactly the number the first pass omitted. Probing the whole-book 4,155,304,200 was wrong, since the answer is broken down by bucket and never states a total. First pass was WEAK: it showed arrears exposure alone, which is zero by construction in the CURRENT bucket and so reported 2,654 healthy loans as carrying no balance. The 4,155,304,200 probe is total_outstanding_inr and is what makes the answer honest -- if it is absent the model has regressed on the fix made for this question."
+    },
+    {
+      "id": "Q7",
+      "question": "How many customers are showing churn signals?",
+      "probes": [
+        12,
+        4864
+      ],
+      "note": "First pass FAILED, answering 420 at-risk POLICIES. The 4,864 probe is customers_unknown_trend: 12 out of 5,000 read without it implies a healthy book when the truth is that the book is almost entirely unmeasured."
+    },
+    {
+      "id": "Q8",
+      "question": "Which campaign channel converts best, and which one burns the most consent?",
+      "probes": [],
+      "requires_metrics": [
+        "campaign_conversion_rate",
+        "campaign_opt_out_rate"
+      ],
+      "note": "No value probe: the answer is per-channel and states no total, so the original 24,918 probe could never have matched. What is actually under test is the pairing rule -- a channel that converts well and burns consent is not a good channel -- so this asserts that BOTH rates are selected. Channel spread is flat -- a seeding artifact. Probing only the contact total, since which channel wins is within noise and asserting on it would make the eval fragile for the wrong reason."
+    },
+    {
+      "id": "Q9",
+      "question": "How many cross-sell gaps do we have, and how many are in customers we can actually contact and whose KYC is current?",
+      "probes": [
+        7855,
+        6723
+      ],
+      "note": "Tests that need and eligibility stay separate."
+    },
+    {
+      "id": "Q10",
+      "question": "What is the claim rejection rate by policy type?",
+      "probes": [
+        0.166667,
+        0.118111
+      ],
+      "tolerance": 0.001,
+      "note": "ULIP and HEALTH."
+    },
+    {
+      "id": "Q11",
+      "question": "Who are our top 10 customers by relationship value who are currently in arrears?",
+      "probes": [],
+      "row_count": 10,
+      "note": "First pass was WEAK: it rebuilt the arrears predicate from worst_dpd_bucket and grouped NO_CREDIT_OBLIGATION with CURRENT. Asserted on row count rather than on customer identities, which are synthetic and would make this a test of the seed rather than of the model."
+    },
+    {
+      "id": "Q12",
+      "question": "How many customers with a hardship signal are we still contacting in campaigns?",
+      "probes": [
+        268
+      ],
+      "note": "THE GOVERNANCE QUESTION. First pass returned the correct 268 by hand-rolling SQL against the V_SV_ shims -- right number, ungoverned answer. It is the reason the SEMANTIC_VIEW( assertion exists, and the reason a passing probe alone is not a passing question."
+    },
+    {
+      "id": "Q13",
+      "question": "What is the lapse rate broken down by the channel the policy was sold through?",
+      "probes": [
+        0.089907,
+        0.068844
+      ],
+      "tolerance": 0.001,
+      "anchor_dependent": false,
+      "note": "BROKER highest, BANCA lowest. Tests that channel_sold is not confused with campaign_channel, preferred_channel or -- new in sql/16 -- action_channel."
+    },
+    {
+      "id": "Q14",
+      "question": "How many loans have rising arrears and what is their total outstanding exposure?",
+      "probes": [
+        265,
+        183658600
+      ],
+      "anchor_dependent": true
+    },
+    {
+      "id": "Q15",
+      "question": "Compare the average sum assured by policy type for the active book only.",
+      "probes": [
+        10053021,
+        806197
+      ],
+      "tolerance": 0.001,
+      "note": "Tests that an 'active book only' filter mentioned in passing at the end of a sentence survives."
+    },
+    {
+      "id": "Q16",
+      "question": "How many next best action recommendations have we published, for how many customers, and what is the total expected value?",
+      "probes": [
+        3917,
+        2346,
+        7177355
+      ],
+      "note": "NEW. The three metrics M9 was asked for, in the shape a portfolio manager asks for them. The 2,346 probe is the point: 3,917 actions is not 3,917 opportunities to contact somebody."
+    },
+    {
+      "id": "Q17",
+      "question": "What is our suppression rate and which rules are blocking the most actions?",
+      "probes": [
+        0.75478,
+        3374
+      ],
+      "tolerance": 0.0001,
+      "requires_metrics": [
+        "suppression_rate",
+        "suppression_reason"
+      ],
+      "note": "NEW. 3,374 is DNC_REGISTRY, the largest single blocking rule. The overall rate must appear as a scalar alongside the breakdown -- the first run returned suppression_rate grouped BY suppression_reason, which is degenerate (1.0 in every suppressed bucket by construction) and was caused by a defect in this model own verified query, since fixed. Must come from nba_candidates over the eligible_on_need denominator. A 0.138167 answer means it divided by all 90,000 evaluated pairs; a 0.0 answer means it went to nba, where suppressed rows do not exist."
+    },
+    {
+      "id": "Q18",
+      "question": "How many customers in arrears have a recommendation, and how many had an action blocked?",
+      "probes": [],
+      "require_both_engine_tables": true,
+      "note": "NEW. A semi-join across BOTH engine grains at once -- exactly the shape Q12 could not express, now on the two newest facts. No probes: this question exists to test that the model can express it at all and that the two grains are labelled, which the runner checks structurally. Deliberately the hardest routing question in the set."
+    },
+    {
+      "id": "Q19",
+      "question": "What is the split between sales actions and care actions in what we recommend?",
+      "probes": [
+        2670,
+        908,
+        339
+      ],
+      "note": "NEW. Tests that the sales-versus-care mix is reachable. The product principle behind it: an engine that only recommends sales is a campaign list. THE PROBES ARE THREE NUMBERS BECAUSE THE ANSWER HAS THREE CLASSES: SALES 2,670, CARE 908, RETENTION 339. The question asks for a two-way split and the correct answer refuses it -- early renewal reminders and lapsed-policy win-backs are non-sales but sit outside the protective care band, so forcing them into either bucket misstates them. Originally probed on the 3,917 total, which became wrong once nba.action_class existed: a correct answer is grouped and states no total. requires_metrics asserts the dimension is used rather than the classification being rebuilt in SQL -- which is exactly what the agent test caught it doing, and what led to the dimension being added.",
+      "requires_metrics": [
+        "action_class"
+      ]
+    },
+    {
+      "id": "Q20",
+      "question": "How much gross value at stake did compliance rules block, and how many customers did that affect?",
+      "probes": [
+        4580
+      ],
+      "note": "NEW. Tests that suppressed value at stake is reached on nba_candidates and not confused with expected value on nba. The 4,580 probe is customers_suppressed."
+    }
+  ]
+}

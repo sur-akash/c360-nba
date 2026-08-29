@@ -22,11 +22,27 @@ sql/05_curated_signals.sql    five AI functions per artefact, confidence-gated
 sql/06_audio_demo.sql         real audio -> AI_TRANSCRIBE -> same grain as text
 sql/07_curated_rollup.sql     per-customer interaction rollup
 sql/08_gold_c360.sql          the customer spine and timeline
-sql/09_semantic_view.sql      GOLD.SV_CUSTOMER_360 for Cortex Analyst
+sql/09_semantic_view.sql      the five V_SV_ feeder views (the model moved to 16)
 sql/10_search_services.sql    two Cortex Search services  <-- retrieval layer
 sql/10b_suspend_search.sql    stop paying for idle retrieval
 sql/10c_resume_search.sql     bring it back up before a demo
+sql/11_action_catalog.sql     18 actions, their tiers, margins and disclosures
+sql/12_nba_eligibility.sql    GOLD.NBA_ELIGIBLE — every candidate, every rule
+sql/13_nba_scoring.sql        deterministic propensity and expected value
+sql/14_nba_reasoning.sql      the written rationale, validated
+sql/15_nba_publish.sql        GOLD.NEXT_BEST_ACTION, then tries to break it
+sql/16_semantic_view_nba.sql  GOLD.SV_CUSTOMER_360 for Cortex Analyst
+sql/17_nba_tool.sql           APP.GET_NEXT_BEST_ACTIONS — the agent's action tool
+sql/18_agent.sql              APP.RM_COPILOT — four tools  <-- the agent
+sql/18b_agent_grants_admin.sql  the one grant the build role cannot make
 ```
+
+`09` no longer creates the semantic view. It creates the presentation shims the
+model reads; `16` is the single authoritative `CREATE OR REPLACE SEMANTIC VIEW`.
+The definition had to move because suppression is only recorded in
+`GOLD.NBA_ELIGIBLE` (created at `12`), `ALTER SEMANTIC VIEW` cannot add a table or
+a metric, and leaving a second copy in `09` would have guaranteed drift. Both
+files' headers record it from their own side.
 
 Every database object is created by a numbered script in `sql/`, run in order.
 There is exactly one documented non-SQL step in the whole rebuild (copying `app/`
@@ -195,3 +211,62 @@ session: if a *forced* refresh over the join re-embeds everything, the *daily
 scheduled* refresh may too — ~0.02 credits/day on a corpus that never changes.
 Suspending indexing via `10b` is the conservative hedge until that has been
 watched over a full day.
+
+## The agent
+
+`APP.RM_COPILOT`, created by `sql/18_agent.sql`. Four tools, because it serves two
+personas asking different questions.
+
+| Tool | Type | Answers |
+|---|---|---|
+| `portfolio_analytics` | Cortex Analyst on `GOLD.SV_CUSTOMER_360` | how many / how much / which cohort / what trend |
+| `interaction_search` | Cortex Search on `APP.SEARCH_INTERACTIONS` | what did the customer actually say |
+| `product_terms` | Cortex Search on `APP.SEARCH_PRODUCT_DOCS` | is this permitted, and on what terms |
+| `next_best_actions` | `APP.GET_NEXT_BEST_ACTIONS` | what should I do next for this person |
+
+**The rule the whole design turns on: the agent must call `next_best_actions`
+before recommending anything for a named customer, and may never assemble a
+recommendation from the other three.**
+
+That is not tidiness. Each of the other three tools can support a confident,
+well-evidenced, entirely impermissible recommendation. Interaction search will
+surface a customer *asking* for a top-up loan and cannot see that they are 45 days
+past due. Product terms will confirm the customer meets the product's stated
+eligibility and cannot see the do-not-contact register, the open complaint or the
+vulnerability flag. Portfolio analytics can report that their cohort converts
+well, and cohort membership is not permission. Only the engine tool has read
+`GOLD.NBA_ELIGIBLE`, and only it returns what was **suppressed**.
+
+`APP.GET_NEXT_BEST_ACTIONS(customer_id)` returns one JSON document: the customer's
+profile and care posture, up to three ranked actions each with rationale, resolved
+evidence, the disclosure to read out and the full rule-by-rule trace — and the
+actions the engine wanted to take and a rule blocked, each with every rule that
+returned BLOCK and what it observed. Deterministic SQL, no AI, zero credits per
+call.
+
+## What the evaluations found
+
+`evals/` holds two, and both found something the build had got wrong.
+
+**`run_analyst_evals.py`** — 20 questions, scored on whether the generated SQL
+went *through* `SEMANTIC_VIEW()` before it is scored on the number. Final state
+20/20, all governed. It established that closing a coverage gap does not undo the
+behaviour it caused: the fix recorded for Q12 in Phase 5 had not held, and
+required `AI_VERIFIED_QUERIES` rather than another metric or another paragraph of
+instruction. It then established that an exemplar set covering only the hard
+shapes degrades the easy ones — adding six semi-join exemplars fixed Q12 and broke
+Q10.
+
+**`agent_transcripts.md`** — 13 questions including four adversarial. 12 fully
+correct, 4/4 adversarial refusals correct. It caught the same governance failure
+recurring one layer up, inside the agent, on the newest fact — and this time the
+cause was neither a missing metric nor a missing instruction but a **missing
+dimension**: a "split" needs rows and the model offered only two boolean columns,
+so constructing the category in SQL was the only expressible route. Fixing it
+falsified the taxonomy: "sales versus care" turns out to be a false binary, with a
+third class of 339 retention actions that belong in neither bucket.
+
+Read `evals/agent_transcripts.md` §2 for that chain, and §4 for what the four
+adversarial questions establish — including the run where the agent, asked to
+speculate about a customer's health so the RM could "pitch appropriately",
+declined and then caught the implication the question had buried.

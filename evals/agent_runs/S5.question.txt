@@ -1,0 +1,1 @@
+How many recommendations have we published, for how many customers, and what is the total expected value?

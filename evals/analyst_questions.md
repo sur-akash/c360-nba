@@ -4,6 +4,14 @@ Fifteen questions a portfolio manager would actually ask, run through Cortex Ana
 against `GOLD.SV_CUSTOMER_360`, with the generated SQL set beside the SQL a data
 engineer on this project would have written by hand.
 
+**This file records the ORIGINAL HAND RUN of fifteen questions against the
+fifteen-metric, five-fact model.** It has since been superseded as a regression
+suite by `evals/run_analyst_evals.py`, which runs twenty questions -- these
+fifteen unaltered plus five on the next-best-action engine -- and asserts the
+governance property this run could only observe. Section 5 records what that
+re-run found, including the fact that the fix recorded here for Q12 did not hold.
+The model itself moved from `sql/09` to `sql/16` in M9; see §5.
+
 **Method.** Each question was submitted verbatim via
 `cortex analyst query "<question>" --view=C360_NBA.GOLD.SV_CUSTOMER_360`. The
 hand-written column is plain SQL over `GOLD.CUSTOMER_360`, `GOLD.C360_ASOF` and the
@@ -486,3 +494,161 @@ gaps do not produce errors; they produce ungoverned answers.
 3. Q3's HOME 0.00% lapse rate and Q8's flat channel spread are both seeding artifacts.
    Analyst reports them as findings because they are, in the data. Anything demoed off
    this view needs a human between the number and the conclusion.
+
+---
+
+## 5. The M9 re-run — `evals/run_analyst_evals.py`
+
+The fifteen questions above were run by hand. That was enough to find four
+defects and it is not enough to keep them fixed, for the reason §4 gives: the
+dangerous failure is invisible in the output. So M9 turned this into a runner.
+
+**What changed.** Twenty questions -- these fifteen verbatim plus five on the
+engine that `sql/16` made expressible -- each scored on three things, in this
+order:
+
+| | Check | Fails when |
+|---|---|---|
+| **G1** | generated SQL contains `SEMANTIC_VIEW(` | the answer bypassed the model |
+| **G2** | generated SQL names no `V_SV_` shim | it reached around the model, possibly as well as through it |
+| **A** | every expected number is present in the executed result | the arithmetic is wrong |
+
+G1 and G2 are carry-over 2 from §4. They come first because a query that reaches
+the right number by bypassing the view is a governance failure *even when the
+number is correct*, and it should be reported as a failure rather than as a pass
+with a footnote. G2 is not redundant: a hybrid query that calls
+`SEMANTIC_VIEW()` and also joins a shim satisfies G1 and is exactly as ungoverned
+in the half that matters.
+
+Answers are checked by **probes** -- the numbers the business asked for, which
+must appear somewhere in the result -- rather than by comparing whole result
+sets. Analyst is free to name columns, order rows and add companion metrics, all
+three of which are desirable and all three of which would make a full comparison
+fail on cosmetic variation while saying nothing about correctness.
+
+**Final state: 20/20 pass, 20/20 answered inside the semantic view.**
+
+### 5.1 Q12's fix did not hold, which is the main finding
+
+The first run of the new suite failed Q12 on G1 and G2, with generated SQL the
+same shape as the original first-pass failure recorded above: `V_SV_CAMPAIGN` and
+`V_SV_CUSTOMER` read directly, joined by hand, returning the correct 268.
+
+`campaigns.customers_contacted` existed. The `AI_SQL_GENERATION` block had by then
+acquired a paragraph headed NEVER LEAVE THIS MODEL, in capitals, naming this
+exact behaviour. Analyst did it anyway.
+
+So §4's diagnosis was incomplete. It concluded that "coverage gaps do not produce
+errors; they produce ungoverned answers", and the remedy it implied was to close
+the gap. But **closing a coverage gap does not undo the behaviour it caused.** A
+metric makes an answer *possible* inside the model; it does not make the model
+the path of least resistance for a question shaped like a join. Prose
+instructions are advisory to a model weighing them against its own read of the
+schema.
+
+What fixed it was `AI_VERIFIED_QUERIES` -- a worked answer attached to a
+question, which is not advisory.
+
+### 5.2 An exemplar set that covers only the hard shapes makes the easy ones worse
+
+The first version of the verified-query block held six queries, every one a
+semi-join or a two-grain case. Q12 and Q18 started passing. **Q10 then started
+failing** -- "claim rejection rate by policy type", a plain metric-by-dimension
+breakdown that had passed unaided in every prior run -- deterministically, three
+runs out of three, reading `V_SV_CLAIM` directly to compute a rate that already
+exists as `claim_rejection_rate`.
+
+The reading that fits: verified queries are retrieved as exemplars, and for a
+simple breakdown none of the six was structurally similar. What got retrieved
+instead was CTE-and-join prose, which reads as licence to write ordinary SQL. The
+exemplar set is not a patch list for known failures; it is training data for
+shape, and one that omits the commonest shape teaches its absence.
+
+Adding a breakdown exemplar fixed Q10 and left **Q11** -- a ranked *listing* of
+customers -- still bypassing. Same failure, third shape. There was no reason to
+expect an exemplar for one shape to generalise to another, and it did not. The
+block now leads with three ordinary shapes (a breakdown, a paired rate, a ranked
+listing) before the six semi-joins and the two cases that genuinely need two
+calls joined.
+
+### 5.3 A bad verified query propagates harder than a bad comment
+
+`suppression_rate_by_reason` took two corrections. V1 selected `suppression_rate`
+with `DIMENSIONS suppression_reason`, which is degenerate: grouped by the reason a
+pair was blocked, the rate is 1.0 in every suppressed bucket by construction. V2
+added `WHERE eligible_on_need = TRUE` on the theory that restricting to the
+denominator population would make the rate whole. It does not -- the ratio is
+still evaluated per group.
+
+Analyst followed both faithfully in turn, and Q17 kept failing its 0.7548 probe
+while passing both governance checks. Which is what a probe is for: G1 and G2
+cannot tell you the answer is uninformative.
+
+The property being wished away: **a ratio over a whole population is not
+available at the same grain as a breakdown of its numerator.** No single
+`SEMANTIC_VIEW()` call returns both and no filter makes one. The exemplar is now
+two calls joined.
+
+### 5.4 A5b — synonyms must resolve UNAMBIGUOUSLY
+
+§4 noted that the `A5` assertion "checks that the six required synonyms
+*resolve*; it does not and cannot check that they resolve to the right thing".
+Correct, but it *can* check that a term resolves to exactly one thing, which is
+strictly stronger and catches the Q7 defect directly. `sql/16` §3.4b does that
+for the engine's vocabulary.
+
+It earned its place on the first run. `'suppressed'` resolved to two dimensions:
+`nba_candidates.suppressed` and `customers.is_on_dnc_registry`, which had claimed
+the word before the engine existed. DNC is one of thirteen suppression reasons,
+so a policy flag would have been competing for -- and sometimes winning -- every
+question about the engine blocking an action. Removed from the DNC dimension,
+along with `'suppressed customers'` from the `dnc_customers` metric.
+
+### 5.5 Five probe specifications were wrong, not five answers
+
+Q3, Q6, Q8, Q11 and Q17 failed their first automated run on the answer check
+while passing both governance checks, and in four of the five the eval was wrong
+rather than the model. All four had the same cause: **the question is answered
+per-group, so the total I had written as the probe never appears in the result.**
+Q6's whole-book outstanding, Q8's total contact count, Q3's overall lapse rate.
+
+Corrected by probing what the answer actually contains -- the per-bucket, per-
+channel and per-type values -- and, for the two questions where the property
+under test is *which metrics were selected* rather than what number came back, by
+asserting on the SQL instead. Q6 must select `total_outstanding_inr` alongside
+`arrears_exposure_inr`, because that pairing is the fix made for it above; Q8
+must select both `campaign_conversion_rate` and `campaign_opt_out_rate`.
+
+One consequence recorded rather than hidden: **Q3 no longer asserts the overall
+8.32% lapse rate.** Asked for the rate "overall, and how does it vary by policy
+type", Analyst returns the breakdown and no total row. The overall figure is
+derivable from the per-type counts it returns but is not stated. That is a mild
+incompleteness against a two-part question, left as a finding.
+
+### 5.6 Q19 and the false binary
+
+Q19 -- the sales-versus-care split -- passed the automated suite while the *agent*
+failed the same question by hand-rolling the classification against `V_SV_NBA`.
+Two things follow.
+
+First, **the agent path and the direct Analyst path do not behave identically**,
+so testing one does not test the other. See `agent_transcripts.md` §2 and §7.
+
+Second, the fix (`nba.action_class`) revealed that there are three classes and not
+two: SALES 2,670, CARE 908, and RETENTION 339 -- early renewal reminders and
+lapsed-policy win-backs, non-sales but outside the protective care band. Q19's
+probes are now those three numbers. The question asks for a two-way split and the
+correct answer refuses it.
+
+### 5.7 Where the model lives now
+
+`GOLD.SV_CUSTOMER_360` is created by **`sql/16_semantic_view_nba.sql`**, not by
+`sql/09`. `sql/09` keeps the five feeder views; `sql/16` adds two more, the
+engine's two logical tables, the three metrics M9 asked for, a distinct-customer
+metric on every fact, and the verified queries. The three assertions in `sql/09`
+§3.2-3.4 moved with it.
+
+The reason is dependency order rather than preference: suppression is only
+recorded in `GOLD.NBA_ELIGIBLE`, created at `sql/12`, and `ALTER SEMANTIC VIEW`
+cannot add a table or a metric -- so the authoritative definition has to run after
+`12`, and duplicating 830 lines to leave a copy in `09` would guarantee drift.

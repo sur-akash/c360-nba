@@ -1,0 +1,29 @@
+# Streamlit theme for C360 · Next Best Action
+#
+# This file exists for one reason: primaryColor.
+#
+# Streamlit paints its widget accent from the theme, not from the stylesheet, and
+# the default is #FF4B4B. In an app where red means "a compliance rule blocked
+# this" and amber means "read this before you dial", a red slider track and a red
+# selected-nav dot make the single most saturated colour on screen mean nothing at
+# all -- which drains it of meaning everywhere else too.
+#
+# Some of it can be reached from CSS and some cannot. The slider's filled track is
+# an inline linear-gradient whose colour stops are recomputed on every drag, so a
+# stylesheet can only replace the whole gradient and lose the fill position with
+# it. Setting the theme is the correct fix and it also catches the multiselect
+# tags, the chat avatars, focus rings and the thumb value label in one place.
+#
+# Custom themes in Streamlit in Snowflake have been supported since the 2024-10-31
+# release; the file has to sit beside streamlit_app.py on the stage, which is why
+# it lives under app/ and is picked up by "snow stage copy app/".
+#
+# Colours match the tokens in the app's own :root block. Change them in both
+# places or not at all.
+
+[theme]
+base                     = "light"
+primaryColor             = "#1B4D7A"
+textColor                = "#15181C"
+backgroundColor          = "#FFFFFF"
+secondaryBackgroundColor = "#F1F3F6"

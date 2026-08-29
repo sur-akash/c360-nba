@@ -1,0 +1,12 @@
+name: sf_env
+channels:
+  - snowflake
+dependencies:
+  # Anaconda (Snowflake channel) only -- no external access integration exists
+  # in this account and none is needed. altair and pandas ship with the
+  # Streamlit runtime in Snowflake, but are declared explicitly so the
+  # environment is reproducible rather than inherited.
+  - streamlit
+  - snowflake-snowpark-python
+  - pandas
+  - altair

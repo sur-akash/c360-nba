@@ -1,0 +1,245 @@
+[
+  {
+    "event": "response.thinking",
+    "data": {
+      "content_index": 0,
+      "sequence_number": 36,
+      "text": "\nThis is a question about what a customer said — interaction_search, filtered on customer_id 691. But the routing says for a named/numbered customer, call next_best_actions first. However, the question is purely \"what did they say recently\" — that's interaction content. Still, the order of work says call next_best_actions first for a named customer. But this isn't a recommendation request. The question is about what they said. I'll use interaction_search filtered on customer 691, recent interactions. Let me pull their interactions ordered by recency.\n"
+    }
+  },
+  {
+    "event": "response.tool_use",
+    "data": {
+      "client_side_execute": false,
+      "content_index": 1,
+      "input": {
+        "analytical_search": false,
+        "columns": [
+          "CUSTOMER_ID",
+          "OCCURRED_AT",
+          "CHANNEL",
+          "ARTEFACT_TYPE",
+          "INTENT",
+          "PRODUCT_MENTIONED",
+          "SENTIMENT_BAND",
+          "SUBJECT",
+          "SUMMARY_25W",
+          "BODY"
+        ],
+        "filter": "{\"@eq\": {\"CUSTOMER_ID\": 691}}",
+        "limit": 14,
+        "query": "recent conversations, concerns, requests, complaints"
+      },
+      "name": "interaction_search",
+      "sequence_number": 39,
+      "tool_use_id": "toolu_bdrk_01Lnn4AT9EKaC83Jr3RQB4N2",
+      "type": "cortex_search"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Running interaction_search",
+      "sequence_number": 40,
+      "status": "executing_tool",
+      "tool_type": "cortex_search",
+      "tool_use_id": "toolu_bdrk_01Lnn4AT9EKaC83Jr3RQB4N2"
+    }
+  },
+  {
+    "event": "response.tool_result.status",
+    "data": {
+      "message": "Reviewing search results from interaction_search",
+      "sequence_number": 41,
+      "status": "sending_search_results",
+      "tool_type": "cortex_search",
+      "tool_use_id": "toolu_bdrk_01Lnn4AT9EKaC83Jr3RQB4N2"
+    }
+  },
+  {
+    "event": "response.tool_result",
+    "data": {
+      "content": [
+        {
+          "json": {
+            "search_results": [
+              {
+                "columns": {
+                  "ARTEFACT_TYPE": "CHAT",
+                  "CHANNEL": "APP_CHAT",
+                  "CUSTOMER_ID": "691",
+                  "INTENT": "PAYMENT_DIFFICULTY_OR_DEFERRAL",
+                  "OCCURRED_AT": "2026-05-16T17:05:00Z",
+                  "PRODUCT_MENTIONED": "UNKNOWN",
+                  "SENTIMENT_BAND": "NEGATIVE",
+                  "SUMMARY_25W": "Customer's textile business closed; no income since June. Requests 4-5 weeks deferral on EMI; can pay 25k next week, remainder later."
+                },
+                "doc_id": "IX-000691-1",
+                "id": "cs_b160d5cc-be82-4c7c-a96b-3c89aeb3a138",
+                "search_service_name": "interaction_search",
+                "source_id": 0,
+                "text": "Customer: Hello, main aapke baare mein socha hun. Mera EMI kab tak extend ho sakta hai?\n\nAgent: Namaste Pooja, main Rajesh hoon Aarohan se. Aapka problem kya hai exactly?\n\nCustomer: Sir, mera textile business complete band ho gaya. June mein koi order nahi aaya. Pichle 6 mahine mein itna struggle kiya but now it's finished. Mera ghar ka loan pending hai 54 hazaar rupees, aur meri savings bhi khatam ho gaye. Main kya karun?\n\nAgent: Theek hai Pooja, relax kijiye. Aap kuch time ke liye part payment kar sakte ho kya? Jaise 25 hazaar rupees?\n\nCustomer: Part payment kar dunga lekin wo bhi next week hi. Abhi cash nahi hai. Sir kuch arrangement ho sakta hai kya? Mujhe 4-5 weeks ka time chahiye, phir main sab pay kar dunga. Aap kuch kar sakte ho?\n\nAgent: Dekhte hain. Aapki financial situation improve hone tak kya arrangement hai? Koi income source hai ab?\n\nCustomer: Nahi bilkul nahi. Orders zero hain. Lekin mujhe lagta hai July mein shayad kuch orders aayenge. Tabtak bas mujhe time chahiye sir. Please."
+              },
+              {
+                "columns": {
+                  "ARTEFACT_TYPE": "CHAT",
+                  "CHANNEL": "WHATSAPP",
+                  "CUSTOMER_ID": "691",
+                  "INTENT": "PAYMENT_DIFFICULTY_OR_DEFERRAL",
+                  "OCCURRED_AT": "2026-05-03T09:32:00Z",
+                  "PRODUCT_MENTIONED": "HOME_LOAN",
+                  "SENTIMENT_BAND": "MIXED",
+                  "SUMMARY_25W": "Customer missed four loan payments due to business income loss; requesting payment extension or partial payment arrangement; willing to resolve."
+                },
+                "doc_id": "IX-000691-0",
+                "id": "cs_ba6a426d-c86f-4a0f-b761-35807f8aa6fc",
+                "search_service_name": "interaction_search",
+                "source_id": 1,
+                "text": "Customer: Hi, is this Aarohan?\n\nAgent: Hi Pooja, yes this is Aarohan. I'm Vikram from our support team. How can I help you today?\n\nCustomer: I wanted to check about my home loan account. I know I'm behind on the payments and I wanted to explain what's happening\n\nAgent: Of course, I'm here to help. Can you tell me what's been going on?\n\nCustomer: So my business, I run a small export unit for textiles, we had some major orders that were supposed to come through in March and April but they fell through completely. The buyer cancelled last minute. So I had no income basically for these two months\n\nAgent: I understand, that must be difficult. Have you been able to catch up at all?\n\nCustomer: I missed the April and May payments, and also missed in February and March before that. I am planning to pay though, I'm not saying I won't. I just need a bit of breathing room. Can you give me maybe a few weeks extension or something? Or I can try to make a part payment now of maybe Rs 20,000 if that helps\n\nAgent: Let me see what we can do. Can you give me your loan account number? I'll pull up your file and check what options are available\n\nCustomer: It's 4821-5509-2847\n\nAgent: Thanks. Just to verify, is your date of birth 14th July 1978?\n\nCustomer: Yes that's right\n\nAgent: Great. Let me review your account... I can see here that you're 82 days overdue and we have 6 missed instalments. I will need to discuss your situation with my team lead and callback you on May 5th with some options. Will that work for you?\n\nCustomer: Yes that's fine. I really appreciate you listening. I do intend to get this sorted"
+              },
+              {
+                "columns": {
+                  "ARTEFACT_TYPE": "CALL_TRANSCRIPT",
+                  "CHANNEL": "CALL",
+                  "CUSTOMER_ID": "691",
+                  "INTENT": "PAYMENT_DIFFICULTY_OR_DEFERRAL",
+                  "OCCURRED_AT": "2026-07-08T16:45:00Z",
+                  "PRODUCT_MENTIONED": "HOME_LOAN",
+                  "SENTIMENT_BAND": "MIXED",
+                  "SUMMARY_25W": "Customer 82 days overdue on home loan EMI. Business collapsed April-May, lost main client. Commits to partial payments: 25k next week, 30k following week, then resume regular 54,340."
+                },
+                "doc_id": "IX-000691-2",
+                "id": "cs_31831837-e86a-4e5e-a499-3cccc5cadf63",
+                "search_service_name": "interaction_search",
+                "source_id": 2,
+                "text": "Agent: Good morning, this is Deepak calling from Aarohan Bank. May I speak with Pooja Kulkarni?\n\nCustomer: Yes, speaking.\n\nAgent: Pooja, I'm calling regarding your home loan account. Our records show you're currently 82 days overdue on your EMI. I wanted to reach out and understand the situation.\n\nCustomer: I know, I know, and I'm sorry about this. Listen, my business took a huge hit. I supply textiles to exporters, and in April and May my main client just pulled all their orders. Just like that. No explanation, nothing. I went from regular monthly contracts to literally zero income.\n\nAgent: I understand that's challenging. However, Pooja, at this point we need to discuss a payment plan. You've missed six instalments. What's your plan to get current?\n\nCustomer: I will pay, okay? I'm not refusing. I've been with you for nearly five years, I've never missed before this. It's just this quarter, the business collapsed. But I'm telling you I will catch up.\n\nAgent: I appreciate that, but we need something concrete. Can you start paying now? Even partial?\n\nCustomer: Yes, I can pay 25,000 rupees next week, and then another 30,000 the week after. That way I can... look, I'm not trying to dodge this. Can you waive the late fee at least? The 54,340 EMI itself is already breaking me.\n\nAgent: The late fee is applied as per terms, but let me see what options exist. I'll need to speak with my supervisor. Can you commit to the payment schedule you mentioned?\n\nCustomer: Yes, yes I can commit. Next week, 25,000, then 30,000. And after that, I'll resume the regular 54,340 as soon as things pick up again. I just... I just need this month to pass."
+              }
+            ],
+            "search_results_persist": {}
+          },
+          "type": "json"
+        }
+      ],
+      "content_index": 2,
+      "name": "interaction_search",
+      "sequence_number": 42,
+      "status": "success",
+      "tool_use_id": "toolu_bdrk_01Lnn4AT9EKaC83Jr3RQB4N2",
+      "type": "cortex_search"
+    }
+  },
+  {
+    "event": "response.thinking",
+    "data": {
+      "content_index": 3,
+      "sequence_number": 78,
+      "text": "\nThree interactions, all from customer 691 (Pooja Kulkarni). Recency is relative to the stored as-of date. The most recent is 8 July 2026. Let me summarize. All three are about payment difficulty on her home loan. This is a hardship/arrears situation. I'll report what she said, tone, dates. No recommendation asked. Note UNKNOWN isn't an issue here.\n"
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "IX-000691-2",
+        "doc_title": "",
+        "index": 555,
+        "search_result_id": "cs_31831837-e86a-4e5e-a499-3cccc5cadf63",
+        "text": "Agent: Good morning, this is Deepak calling from Aarohan Bank. May I speak with Pooja Kulkarni?\n\nCustomer: Yes, speaking.\n\nAgent: Pooja, I'm calling regarding your home loan account. Our records show you're currently 82 days overdue on your EMI. I wanted to reach out and understand the situation.\n\nCustomer: I know, I know, and I'm sorry about this. Listen, my business took a huge hit. I supply textiles to exporters, and in April and May my main client just pulled all their orders. Just like that. No explanation, nothing. I went from regular monthly contracts to literally zero income.\n\nAgent: I understand that's challenging. However, Pooja, at this point we need to discuss a payment plan. You've missed six instalments. What's your plan to get current?\n\nCustomer: I will pay, okay? I'm not refusing. I've been with you for nearly five years, I've never missed before this. It's just this quarter, the business collapsed. But I'm telling you I will catch up.\n\nAgent: I appreciate that, but we need something concrete. Can you start paying now? Even partial?\n\nCustomer: Yes, I can pay 25,000 rupees next week, and then another 30,000 the week after. That way I can... look, I'm not trying to dodge this. Can you waive the late fee at least? The 54,340 EMI itself is already breaking me.\n\nAgent: The late fee is applied as per terms, but let me see what options exist. I'll need to speak with my supervisor. Can you commit to the payment schedule you mentioned?\n\nCustomer: Yes, yes I can commit. Next week, 25,000, then 30,000. And after that, I'll resume the regular 54,340 as soon as things pick up again. I just... I just need this month to pass.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 1,
+      "content_index": 4,
+      "sequence_number": 122
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "IX-000691-2",
+        "doc_title": "",
+        "index": 895,
+        "search_result_id": "cs_31831837-e86a-4e5e-a499-3cccc5cadf63",
+        "text": "Agent: Good morning, this is Deepak calling from Aarohan Bank. May I speak with Pooja Kulkarni?\n\nCustomer: Yes, speaking.\n\nAgent: Pooja, I'm calling regarding your home loan account. Our records show you're currently 82 days overdue on your EMI. I wanted to reach out and understand the situation.\n\nCustomer: I know, I know, and I'm sorry about this. Listen, my business took a huge hit. I supply textiles to exporters, and in April and May my main client just pulled all their orders. Just like that. No explanation, nothing. I went from regular monthly contracts to literally zero income.\n\nAgent: I understand that's challenging. However, Pooja, at this point we need to discuss a payment plan. You've missed six instalments. What's your plan to get current?\n\nCustomer: I will pay, okay? I'm not refusing. I've been with you for nearly five years, I've never missed before this. It's just this quarter, the business collapsed. But I'm telling you I will catch up.\n\nAgent: I appreciate that, but we need something concrete. Can you start paying now? Even partial?\n\nCustomer: Yes, I can pay 25,000 rupees next week, and then another 30,000 the week after. That way I can... look, I'm not trying to dodge this. Can you waive the late fee at least? The 54,340 EMI itself is already breaking me.\n\nAgent: The late fee is applied as per terms, but let me see what options exist. I'll need to speak with my supervisor. Can you commit to the payment schedule you mentioned?\n\nCustomer: Yes, yes I can commit. Next week, 25,000, then 30,000. And after that, I'll resume the regular 54,340 as soon as things pick up again. I just... I just need this month to pass.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 2,
+      "content_index": 4,
+      "sequence_number": 145
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "IX-000691-1",
+        "doc_title": "",
+        "index": 1232,
+        "search_result_id": "cs_b160d5cc-be82-4c7c-a96b-3c89aeb3a138",
+        "text": "Customer: Hello, main aapke baare mein socha hun. Mera EMI kab tak extend ho sakta hai?\n\nAgent: Namaste Pooja, main Rajesh hoon Aarohan se. Aapka problem kya hai exactly?\n\nCustomer: Sir, mera textile business complete band ho gaya. June mein koi order nahi aaya. Pichle 6 mahine mein itna struggle kiya but now it's finished. Mera ghar ka loan pending hai 54 hazaar rupees, aur meri savings bhi khatam ho gaye. Main kya karun?\n\nAgent: Theek hai Pooja, relax kijiye. Aap kuch time ke liye part payment kar sakte ho kya? Jaise 25 hazaar rupees?\n\nCustomer: Part payment kar dunga lekin wo bhi next week hi. Abhi cash nahi hai. Sir kuch arrangement ho sakta hai kya? Mujhe 4-5 weeks ka time chahiye, phir main sab pay kar dunga. Aap kuch kar sakte ho?\n\nAgent: Dekhte hain. Aapki financial situation improve hone tak kya arrangement hai? Koi income source hai ab?\n\nCustomer: Nahi bilkul nahi. Orders zero hain. Lekin mujhe lagta hai July mein shayad kuch orders aayenge. Tabtak bas mujhe time chahiye sir. Please.",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 3,
+      "content_index": 4,
+      "sequence_number": 169
+    }
+  },
+  {
+    "event": "response.text.annotation",
+    "data": {
+      "annotation": {
+        "doc_id": "IX-000691-0",
+        "doc_title": "",
+        "index": 1672,
+        "search_result_id": "cs_ba6a426d-c86f-4a0f-b761-35807f8aa6fc",
+        "text": "Customer: Hi, is this Aarohan?\n\nAgent: Hi Pooja, yes this is Aarohan. I'm Vikram from our support team. How can I help you today?\n\nCustomer: I wanted to check about my home loan account. I know I'm behind on the payments and I wanted to explain what's happening\n\nAgent: Of course, I'm here to help. Can you tell me what's been going on?\n\nCustomer: So my business, I run a small export unit for textiles, we had some major orders that were supposed to come through in March and April but they fell through completely. The buyer cancelled last minute. So I had no income basically for these two months\n\nAgent: I understand, that must be difficult. Have you been able to catch up at all?\n\nCustomer: I missed the April and May payments, and also missed in February and March before that. I am planning to pay though, I'm not saying I won't. I just need a bit of breathing room. Can you give me maybe a few weeks extension or something? Or I can try to make a part payment now of maybe Rs 20,000 if that helps\n\nAgent: Let me see what we can do. Can you give me your loan account number? I'll pull up your file and check what options are available\n\nCustomer: It's 4821-5509-2847\n\nAgent: Thanks. Just to verify, is your date of birth 14th July 1978?\n\nCustomer: Yes that's right\n\nAgent: Great. Let me review your account... I can see here that you're 82 days overdue and we have 6 missed instalments. I will need to discuss your situation with my team lead and callback you on May 5th with some options. Will that work for you?\n\nCustomer: Yes that's fine. I really appreciate you listening. I do intend to get this sorted",
+        "type": "cortex_search_citation"
+      },
+      "annotation_index": 4,
+      "content_index": 4,
+      "sequence_number": 200
+    }
+  },
+  {
+    "event": "response.text",
+    "data": {
+      "annotations": [
+        {
+          "doc_id": "IX-000691-2",
+          "doc_title": "",
+          "index": 555,
+          "search_result_id": "cs_31831837-e86a-4e5e-a499-3cccc5cadf63",
+          "text": "Agent: Good morning, this is Deepak calling from Aarohan Bank. May I speak with Pooja Kulkarni?\n\nCustomer: Yes, speaking.\n\nAgent: Pooja, I'm calling regarding your home loan account. Our records show you're currently 82 days overdue on your EMI. I wanted to reach out and understand the situation.\n\nCustomer: I know, I know, and I'm sorry about this. Listen, my business took a huge hit. I supply textiles to exporters, and in April and May my main client just pulled all their orders. Just like that. No explanation, nothing. I went from regular monthly contracts to literally zero income.\n\nAgent: I understand that's challenging. However, Pooja, at this point we need to discuss a payment plan. You've missed six instalments. What's your plan to get current?\n\nCustomer: I will pay, okay? I'm not refusing. I've been with you for nearly five years, I've never missed before this. It's just this quarter, the business collapsed. But I'm telling you I will catch up.\n\nAgent: I appreciate that, but we need something concrete. Can you start paying now? Even partial?\n\nCustomer: Yes, I can pay 25,000 rupees next week, and then another 30,000 the week after. That way I can... look, I'm not trying to dodge this. Can you waive the late fee at least? The 54,340 EMI itself is already breaking me.\n\nAgent: The late fee is applied as per terms, but let me see what options exist. I'll need to speak with my supervisor. Can you commit to the payment schedule you mentioned?\n\nCustomer: Yes, yes I can commit. Next week, 25,000, then 30,000. And after that, I'll resume the regular 54,340 as soon as things pick up again. I just... I just need this month to pass.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "IX-000691-2",
+          "doc_title": "",
+          "index": 895,
+          "search_result_id": "cs_31831837-e86a-4e5e-a499-3cccc5cadf63",
+          "text": "Agent: Good morning, this is Deepak calling from Aarohan Bank. May I speak with Pooja Kulkarni?\n\nCustomer: Yes, speaking.\n\nAgent: Pooja, I'm calling regarding your home loan account. Our records show you're currently 82 days overdue on your EMI. I wanted to reach out and understand the situation.\n\nCustomer: I know, I know, and I'm sorry about this. Listen, my business took a huge hit. I supply textiles to exporters, and in April and May my main client just pulled all their orders. Just like that. No explanation, nothing. I went from regular monthly contracts to literally zero income.\n\nAgent: I understand that's challenging. However, Pooja, at this point we need to discuss a payment plan. You've missed six instalments. What's your plan to get current?\n\nCustomer: I will pay, okay? I'm not refusing. I've been with you for nearly five years, I've never missed before this. It's just this quarter, the business collapsed. But I'm telling you I will catch up.\n\nAgent: I appreciate that, but we need something concrete. Can you start paying now? Even partial?\n\nCustomer: Yes, I can pay 25,000 rupees next week, and then another 30,000 the week after. That way I can... look, I'm not trying to dodge this. Can you waive the late fee at least? The 54,340 EMI itself is already breaking me.\n\nAgent: The late fee is applied as per terms, but let me see what options exist. I'll need to speak with my supervisor. Can you commit to the payment schedule you mentioned?\n\nCustomer: Yes, yes I can commit. Next week, 25,000, then 30,000. And after that, I'll resume the regular 54,340 as soon as things pick up again. I just... I just need this month to pass.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "IX-000691-1",
+          "doc_title": "",
+          "index": 1232,
+          "search_result_id": "cs_b160d5cc-be82-4c7c-a96b-3c89aeb3a138",
+          "text": "Customer: Hello, main aapke baare mein socha hun. Mera EMI kab tak extend ho sakta hai?\n\nAgent: Namaste Pooja, main Rajesh hoon Aarohan se. Aapka problem kya hai exactly?\n\nCustomer: Sir, mera textile business complete band ho gaya. June mein koi order nahi aaya. Pichle 6 mahine mein itna struggle kiya but now it's finished. Mera ghar ka loan pending hai 54 hazaar rupees, aur meri savings bhi khatam ho gaye. Main kya karun?\n\nAgent: Theek hai Pooja, relax kijiye. Aap kuch time ke liye part payment kar sakte ho kya? Jaise 25 hazaar rupees?\n\nCustomer: Part payment kar dunga lekin wo bhi next week hi. Abhi cash nahi hai. Sir kuch arrangement ho sakta hai kya? Mujhe 4-5 weeks ka time chahiye, phir main sab pay kar dunga. Aap kuch kar sakte ho?\n\nAgent: Dekhte hain. Aapki financial situation improve hone tak kya arrangement hai? Koi income source hai ab?\n\nCustomer: Nahi bilkul nahi. Orders zero hain. Lekin mujhe lagta hai July mein shayad kuch orders aayenge. Tabtak bas mujhe time chahiye sir. Please.",
+          "type": "cortex_search_citation"
+        },
+        {
+          "doc_id": "IX-000691-0",
+          "doc_title": "",
+          "index": 1672,
+          "search_result_id": "cs_ba6a426d-c86f-4a0f-b761-35807f8aa6fc",
+          "text": "Customer: Hi, is this Aarohan?\n\nAgent: Hi Pooja, yes this is Aarohan. I'm Vikram from our support team. How can I help you today?\n\nCustomer: I wanted to check about my home loan account. I know I'm behind on the payments and I wanted to explain what's happening\n\nAgent: Of course, I'm here to help. Can you tell me what's been going on?\n\nCustomer: So my business, I run a small export unit for textiles, we had some major orders that were supposed to come through in March and April but they fell through completely. The buyer cancelled last minute. So I had no income basically for these two months\n\nAgent: I understand, that must be difficult. Have you been able to catch up at all?\n\nCustomer: I missed the April and May payments, and also missed in February and March before that. I am planning to pay though, I'm not saying I won't. I just need a bit of breathing room. Can you give me maybe a few weeks extension or something? Or I can try to make a part payment now of maybe Rs 20,000 if that helps\n\nAgent: Let me see what we can do. Can you give me your loan account number? I'll pull up your file and check what options are available\n\nCustomer: It's 4821-5509-2847\n\nAgent: Thanks. Just to verify, is your date of birth 14th July 1978?\n\nCustomer: Yes that's right\n\nAgent: Great. Let me review your account... I can see here that you're 82 days overdue and we have 6 missed instalments. I will need to discuss your situation with my team lead and callback you on May 5th with some options. Will that work for you?\n\nCustomer: Yes that's fine. I really appreciate you listening. I do intend to get this sorted",
+          "type": "cortex_search_citation"
+        }
+      ],
+      "content_index": 4,
+      "sequence_number": 264,
+      "text": "\n\nCustomer 691 (Pooja Kulkarni) has been in touch with us three times this year, and every contact is about the same thing: she has fallen behind on her home loan EMI after her textile-export business lost its income. Dates below are as recorded against our stored as-of date.\n\n**Most recent — inbound/outbound call, 8 July 2026 (tone: mixed).** She is 82 days overdue with six missed instalments. She said her main client pulled all their orders in April and May \"just like that, no explanation,\" taking her from regular monthly contracts to zero income. She stressed she is not refusing to pay — \"I've been with you for nearly five years, I've never missed before this\" — and committed to a concrete plan: Rs 25,000 next week, Rs 30,000 the week after, then resuming the regular Rs 54,340 EMI. She also asked whether the late fee could be waived, saying the EMI alone \"is already breaking me.\"\n\n**App chat, 16 May 2026 (tone: negative).** She reported her textile business had \"complete band ho gaya\" (completely closed), with no orders since June and her savings exhausted. She asked for a 4–5 week deferral, offering to pay Rs 25,000 the following week and the remainder later, and said she hoped some orders might come in July.\n\n**WhatsApp chat, 3 May 2026 (tone: mixed).** Her earliest recorded contact on this. She explained major textile orders due in March and April \"fell through completely\" when the buyer cancelled, leaving her with no income; she confirmed she had missed the February, March, April and May payments. She asked for a few weeks' extension or offered a part payment of about Rs 20,000, and repeatedly said she intended to get the account sorted.\n\n**The through-line:** a hardship / payment-difficulty situation on the home loan (business income collapse), a customer who is cooperative and wants to arrange partial payments and a deferral, and a specific request to waive late fees. Sentiment across the three ranges from mixed to negative — she is stressed but engaged, not disputing the debt.\n\nA note before you act on this: these are her own words about what she *wants*. Before offering any deferral, fee waiver or other arrangement, run customer 691 through the next-best-action engine, since only that will show whether such an action is permitted given her arrears and any care flags — I'm happy to pull that if you're preparing to speak with her."
+    }
+  }
+]
