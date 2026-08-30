@@ -596,6 +596,22 @@ def screen_cockpit():
                      RELATIONSHIP_VALUE_BAND, DAYS_TO_RENEWAL
               FROM APP.V_WORKLIST""")
 
+    # Diversity strip -- the worklist below sorts care actions ahead of every
+    # sales action regardless of value (see the comment at the sort call), so
+    # an unfiltered top-N skews toward whichever category carries the most
+    # care-tier volume. This shows the book's real category mix before that
+    # sort narrows what's visible, so the catalog's breadth isn't only
+    # discoverable by touching the Category filter.
+    dist = wl.CATEGORY.value_counts()
+    dist_chips = "".join(
+        chip(f"{words(cat)} {n:,} ({n / len(wl):.0%})", "neu")
+        for cat, n in dist.items()
+    )
+    st.markdown(
+        f'<div style="margin:.1rem 0 .7rem;line-height:2.2;">{dist_chips}</div>',
+        unsafe_allow_html=True,
+    )
+
     f1, f2, f3, f4 = st.columns([1.15, 1, 1.35, .85], gap="medium")
     cats = f1.multiselect("Category", sorted(wl.CATEGORY.unique()), default=[])
     chans = f2.multiselect("Channel", sorted(wl.CHANNEL.unique()), default=[])
@@ -1303,6 +1319,27 @@ def screen_ask():
             "routes to Cortex Analyst. Nothing is sent until you ask."
         )
 
+        st.markdown('<p class="sec">What each tool answers</p>', unsafe_allow_html=True)
+        cap_cols = st.columns(3, gap="small")
+        capabilities = [
+            ("Portfolio questions", "Cortex Analyst",
+             "How many, how much, which cohort, what trend -- routed to "
+             "GOLD.SV_CUSTOMER_360 through SEMANTIC_VIEW(), never around it."),
+            ("What a customer said", "Cortex Search · interactions",
+             "Finds the actual call, email or chat -- filterable by customer, "
+             "channel, intent and sentiment, not a summary written after the fact."),
+            ("Is this allowed", "Cortex Search · product terms",
+             "Retrieves the exact eligibility clause, cited as "
+             "PRODUCT_CODE#CLAUSE_ID, that permits or blocks an action."),
+        ]
+        for col, (title, sub, body) in zip(cap_cols, capabilities):
+            col.markdown(
+                f'<div class="pan"><p class="pan-h">{title}</p>'
+                f'<p class="card-t" style="margin:0 0 .3rem;">{sub}</p>'
+                f'<p class="card-x" style="margin:0;">{body}</p></div>',
+                unsafe_allow_html=True,
+            )
+
     for m in st.session_state.chat:
         with st.chat_message(m["role"]):
             st.markdown(m["text"])
@@ -1779,6 +1816,17 @@ with st.sidebar:
         '<div style="font-size:.665rem;color:#8B939E;line-height:1.6">'
         "Expected value and eligibility are deterministic SQL. A model writes the "
         "rationale and never a number. Synthetic data throughout."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<hr/>", unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-size:.665rem;color:#8B939E;line-height:1.7">'
+        'Created by <span style="color:#3D454F;font-weight:640">Akash Sur</span><br/>'
+        '<a href="https://sur-akash.github.io/" target="_blank" rel="noopener"'
+        ' style="color:#1B4D7A;text-decoration:none;'
+        'border-bottom:1px solid #C6D3E0">sur-akash.github.io</a>'
         "</div>",
         unsafe_allow_html=True,
     )
