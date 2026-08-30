@@ -527,16 +527,21 @@ them downstream.
 
 ## 8. File numbering
 
-Settled: the `00` / `02` / `03` naming stands, and `PROJECT_BRIEF.md` §6 was
-updated to match. Nothing on disk was renumbered. The brief's §6, §10 and D2 now
-all reference the same 22 script names, and `run.sh` builds from `sql/00` through
-`sql/31`, stages `app/`, then runs `sql/32_streamlit.sql`.
+Settled: the `00` / `02` / `03` naming stands and nothing on disk was renumbered.
+
+**As built, the sequence is 23 scripts, `sql/00` through `sql/20`** (with `10b`,
+`10c` and `18b` as lettered siblings). `run.sh` runs `00`–`05`, copies the audio
+fixtures to `RAW.AUDIO_STAGE`, runs `06`–`19`, copies `app/` and its theme file to
+`APP.APP_STAGE`, then runs `20_streamlit.sql`. The as-built list is in
+`PROJECT_BRIEF.md` §6; the planned numbering that this section originally
+described — 32 slots ending at `sql/32_streamlit.sql` — is recorded as a delta in
+that file's §0.
 
 Two things about the scheme that are not obvious from the numbers:
 
-- `19_search_service.sql` sits in the CURATED block rather than with the other
-  `APP` objects, because `24_gold_nba_ranked.sql` cites evidence retrieved
-  through it and therefore has to run after it.
-- `02_schema_raw.sql` creates the `RAW` schema itself, duplicating one line of
-  `01_schemas.sql`, so the RAW layer stays runnable standalone against an empty
-  database. Both use `IF NOT EXISTS`.
+- `10_search_services.sql` sits between the spine and the NBA block rather than
+  with the other `APP` objects, because `14_nba_reasoning.sql` cites evidence
+  resolved through it and therefore has to run after it.
+- There is no separate schema script. Each layer's first file creates its own
+  schema with `IF NOT EXISTS` — `02_schema_raw.sql` creates `RAW` — so every
+  layer stays runnable standalone against an empty database.

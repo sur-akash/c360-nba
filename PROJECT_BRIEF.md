@@ -10,6 +10,39 @@ compliance trace showing why the customer was eligible to be contacted.
 
 ---
 
+## 0. Status of this document
+
+This brief is the **pre-build contract**. It was written in Phase 0, before any
+object existed, to fix the architecture, the constraints and the risk register
+before a credit was spent. It is kept as written, because §2, §8 and §9 are what
+the build was actually steered by and rewriting them afterwards would destroy
+that record.
+
+It is therefore **not the as-built description — `README.md` is.** Where the two
+disagree, the README and the files in `sql/` are correct. §6 below has been
+updated to the as-built layout; §10 is the original milestone plan, kept as
+history. Every delta found by diffing this document against the repository:
+
+| Planned here | What was actually built |
+|---|---|
+| 32 script slots, `sql/00`–`sql/32` | 23 scripts, `sql/00`–`sql/20` — see §6 |
+| A separate CURATED conform block (`10`–`13`) | Conforming happens inside `05`, `07` and `08`. `CURATED.DIM_PARTY`, `CONTRACT`, `PAYMENT_FACT`, `SPEND_FACT` and `INTERACTION` were never created as standalone objects |
+| `GOLD.ACTION_CATALOGUE`, `ELIGIBILITY_TRACE`, `DO_NOT_CONTACT`, `NBA_CANDIDATE`, `NBA_RANKED` | `GOLD.ACTION_CATALOG`, `GOLD.NBA_ELIGIBLE` (candidates, rule verdicts and suppression in one table), `GOLD.NBA_SCORED`, `GOLD.NEXT_BEST_ACTION` |
+| `APP.INTERACTION_SEARCH`, `APP.NBA_ADVISOR`, `C360_SV` | `APP.SEARCH_INTERACTIONS` **and** `APP.SEARCH_PRODUCT_DOCS`, `APP.RM_COPILOT`, `GOLD.SV_CUSTOMER_360` |
+| `CURATED.CALL_TRANSCRIPT`, `CURATED.INTERACTION_ENRICHED` | Absorbed into `CURATED.INTERACTION_SIGNALS(_GATED)` over the single `RAW.INTERACTION` grain |
+| ~25,000 interactions, ~12 audio fixtures | 1,203 interactions, of which **3** are genuinely transcribed audio |
+| `claude-opus-5` for the rationale layer | `claude-haiku-4-5` for corpus, enrichment and rationale; `claude-sonnet-4-5` for the product documents; `llama3.3-70b` as a token-sizing proxy only. **No pipeline script calls `claude-opus-5`** |
+| Three Streamlit views | Four screens — portfolio cockpit, customer 360, ask, impact |
+| `sql/90_verify.sql`, `sql/99_teardown.sql`, `docs/README.md` | Not built. Assertions live inside each numbered script; `evals/REPORT.md` carries the scored results |
+| One non-SQL step in the rebuild | Two — the audio stage copy before `sql/06`, and the app stage copy before `sql/20` (itself two commands, see D2) |
+
+One thing this document claims that is **not** yet proven, and is called out again
+in the README: `run.sh` is written and validated but has never been executed as a
+live drop-and-rebuild. The rebuild path is provable by inspection, not by a timed
+log.
+
+---
+
 ## 1. Users and pain
 
 | User | Today | What this gives them |
@@ -226,37 +259,37 @@ Compliance rules in scope (deterministic, each with a trace row):
 
 ```
 sql/
-  00_bootstrap.sql            role, warehouse, budget, database   (applied)
-  01_schemas.sql              RAW / CURATED / GOLD / APP + stages + region guard
-  02_schema_raw.sql           RAW tables + seeded RNG functions    (applied)
-  03_seed_raw.sql             synthetic silo generation            (applied)
-  04_seed_interactions.sql    RAW.INTERACTION — 1,200 AI-generated artefacts  (applied)
-  05_curated_signals.sql      CURATED.INTERACTION_SIGNALS — sentiment, intent,
-                              flags, entities, summary + confidence            (applied)
-  06_audio_demo.sql           RAW.AUDIO_STAGE + AI_TRANSCRIBE over 3 fixtures  (applied)
-  07_curated_rollup.sql       CURATED.CUSTOMER_INTERACTION_ROLLUP              (applied)
-  10_curated_party.sql        CURATED.DIM_PARTY — identity resolution
-  11_curated_contract.sql     CURATED.CONTRACT — policy + loan + card, one grain
-  12_curated_payment.sql      CURATED.PAYMENT_FACT + SPEND_FACT — arrears, spend
-  13_curated_interaction.sql  CURATED.INTERACTION — tickets + calls, one grain
-  19_search_service.sql       APP.INTERACTION_SEARCH — retrieval over 04 and 05
-  20_gold_spine.sql           GOLD.CUSTOMER_360, GOLD.CUSTOMER_FEATURES
-  21_gold_actions.sql         GOLD.ACTION_CATALOGUE
-  22_gold_eligibility.sql     GOLD.ELIGIBILITY_TRACE, GOLD.DO_NOT_CONTACT
-  23_gold_ev.sql              GOLD.NBA_CANDIDATE — deterministic EV, no AI
-  24_gold_nba_ranked.sql      GOLD.NBA_RANKED — reasons + evidence
-  16_semantic_view_nba.sql    GOLD.SV_CUSTOMER_360  (was scoped as 30_semantic_view)
-  17_nba_tool.sql             APP.GET_NEXT_BEST_ACTIONS, the agent's action tool
-  18_agent.sql                APP.RM_COPILOT        (was scoped as 31_agent)
-  32_streamlit.sql            APP.C360_APP  (needs app files staged first)
-  90_verify.sql               assertions across every layer
-  99_teardown.sql             drop everything
+  00_bootstrap.sql            role, warehouse, budget, database (ACCOUNTADMIN)
+  02_schema_raw.sql           RAW schema, table DDL, seeded PRNG helpers
+  03_seed_raw.sql             5,000 customers and their structured history
+  04_seed_interactions.sql    RAW.INTERACTION — 1,200 generated artefacts
+  05_curated_signals.sql      INTERACTION_SIGNALS(_GATED) — five AI calls per row
+  06_audio_demo.sql           RAW.AUDIO_STAGE + AI_TRANSCRIBE over 3 fixtures
+  07_curated_rollup.sql       CURATED.CUSTOMER_INTERACTION_ROLLUP
+  08_gold_c360.sql            GOLD.CUSTOMER_360, GOLD.CUSTOMER_TIMELINE
+  09_semantic_view.sql        the five GOLD.V_SV_* feeder shims
+  10_search_services.sql      APP.SEARCH_INTERACTIONS, APP.SEARCH_PRODUCT_DOCS
+  10b_suspend_search.sql      stop paying for idle retrieval
+  10c_resume_search.sql       bring it back up before a demo
+  11_action_catalog.sql       GOLD.ACTION_CATALOG — 18 actions, margins, disclosures
+  12_nba_eligibility.sql      GOLD.NBA_ELIGIBLE — every candidate, every rule
+  13_nba_scoring.sql          GOLD.NBA_SCORED — propensity and expected value
+  14_nba_reasoning.sql        the written rationale, validated
+  15_nba_publish.sql          GOLD.NEXT_BEST_ACTION
+  16_semantic_view_nba.sql    GOLD.SV_CUSTOMER_360 — the authoritative definition
+  17_nba_tool.sql             APP.GET_NEXT_BEST_ACTIONS, APP.FORMAT_INR
+  18_agent.sql                APP.RM_COPILOT — four tools
+  18b_agent_grants_admin.sql  the one grant COCO_BUILDER cannot make
+  19_app_objects.sql          APP_STAGE, ACTION_FEEDBACK, the app's read views
+  20_streamlit.sql            APP.C360_APP
 app/                          Streamlit in Snowflake source
-data/audio/                   committed call-recording fixtures (.m4a)
-evals/                        scored NBA + Analyst evaluation
-docs/
-  DATA_SEGMENTS.md            planted segments + identifying predicates
-run.sh                        full rebuild, including the one stage-copy step
+data/audio/                   three committed call-recording fixtures (.m4a)
+docs/DATA_SEGMENTS.md         planted segments + identifying predicates
+docs/DEMO_SCRIPT.md           the timed walkthrough
+docs/VIDEO_SCRIPT.md          the submission recording
+evals/                        both eval suites and REPORT.md
+tools/reset_demo.sh           clear demo state between judging sessions
+run.sh                        full rebuild, both non-SQL stage-copy steps included
 ```
 
 Every SQL script is re-runnable against a database in any state. `run.sh` exists
@@ -265,13 +298,14 @@ because exactly one step in the rebuild is not SQL — see decision D2.
 **Numeric order is run order, and it follows the dependency graph.** Three
 consequences worth noting, since none is obvious from the numbers alone:
 
-- **`19_search_service.sql` sits in the CURATED block, not with the other `APP`
-  objects.** It only depends on M3, and `24_gold_nba_ranked.sql` cites evidence
-  retrieved through it, so it has to be built before the GOLD block rather than
-  alongside the semantic view and agent.
-- **`02_schema_raw.sql` creates the `RAW` schema itself**, duplicating one line
-  of `01_schemas.sql`. Deliberate: it keeps the RAW layer runnable standalone
-  against an empty database. Both use `IF NOT EXISTS`.
+- **`10_search_services.sql` sits between the spine and the engine, not with the
+  other `APP` objects.** It depends only on the enrichment in `04`–`05`, and
+  `14_nba_reasoning.sql` cites evidence resolved through it, so it has to be built
+  before the NBA block rather than alongside the semantic view and agent.
+- **There is no separate schema script.** Each layer's first file creates its own
+  schema with `IF NOT EXISTS` — `02_schema_raw.sql` creates `RAW`, and so on —
+  which keeps every layer runnable standalone against an empty database. The
+  planned `01_schemas.sql` was never written.
 - **`03_seed_raw.sql` covers the book, payments and servicing silos in one
   script.** They share the ground-truth table and condition on each other, so
   splitting them across three files would mean three files that cannot be run
@@ -304,9 +338,11 @@ consequences worth noting, since none is obvious from the numbers alone:
   **gone**, their work absorbed into `05` and `06`; `CURATED.CALL_TRANSCRIPT` and
   `CURATED.INTERACTION_ENRICHED` do not exist as separate objects because text and
   transcribed audio deliberately share the single `RAW.INTERACTION` grain rather
-  than being unioned later. `13_curated_interaction.sql` still stands: it unifies
-  servicing tickets with interactions, which `07` currently bridges by reading
-  `RAW.SERVICE_TICKET` directly — flagged in that file's header.
+  than being unioned later. `13_curated_interaction.sql` was never built
+  either. It was to unify servicing tickets with interactions; `07` bridges that
+  gap instead by reading `RAW.SERVICE_TICKET` directly, which is flagged in that
+  file's header and is the one place the planned conform layer is genuinely
+  missed.
 
 ---
 
@@ -321,7 +357,7 @@ Confirmed by live query against this account before any SQL was written.
 | Version | `10.30.102` |
 | Role | `COCO_BUILDER` — `CORTEX_USER`, `CORTEX_AGENT_USER`, `CREATE SCHEMA` on `C360_NBA` |
 | Warehouse | `COCO_WH` (XSMALL) with `COCO_BUDGET` resource monitor, 60 credits/month |
-| Credits consumed to date | 0.301 |
+| Credits consumed to date | 0.301 — measured before any build SQL ran. Final project spend is 62.73; see `README.md`. |
 | Cross-region inference | `CORTEX_ENABLED_CROSS_REGION = ANY_REGION` |
 | Object types recognised | Cortex Search service, semantic view, agent, Streamlit — all present in this version |
 
@@ -346,7 +382,7 @@ AI functions smoke-tested successfully for `COCO_BUILDER` in this region:
 | Streamlit in Snowflake | **Available** | No region restriction. |
 | `AI_COMPLETE`, `AI_CLASSIFY`, `AI_EXTRACT`, `AI_FILTER`, `AI_SENTIMENT`, `AI_SUMMARIZE_AGG`, `AI_TRANSLATE`, `AI_SIMILARITY`, `AI_REDACT` | **Available via cross-region** | Cross-Cloud (Any Region) column ticked. |
 | `AI_AGG` | **Available — verified empirically** | Docs leave the Any-Region column blank, but a live call in this account succeeded. |
-| `AI_TRANSCRIBE` | **Available via cross-region** | Native only in Oregon / N. Virginia / Frankfurt / Azure East US 2. Untested here — no audio fixture yet. |
+| `AI_TRANSCRIBE` | **Available via cross-region — since verified** | Native only in Oregon / N. Virginia / Frankfurt / Azure East US 2. Verified in this account by `sql/06_audio_demo.sql`, which transcribes three committed `.m4a` fixtures onto the `RAW.INTERACTION` grain. |
 | `AI_EMBED` | **Available**, embeddings in-region | Returns `VECTOR`. |
 
 Embedding models for Cortex Search must be one of the three `snowflake-arctic-embed-*`
@@ -496,27 +532,39 @@ settled; the milestones below assume them.
 
 ### D1. Call recordings — hybrid, with a real audio path
 
-The call silo carries ~25,000 rows of text notes for volume, plus **~12 genuine audio
-files** committed under `data/audio/`, `PUT` to `RAW.AUDIO_STAGE` and transcribed for
-real with `AI_TRANSCRIBE`. Fixtures are generated locally with the macOS `say`
-command; that is a build-time fixture, not a runtime dependency, so the
-no-external-services rule holds at runtime. This proves `AI_TRANSCRIBE` actually works
-in `AWS_AP_SOUTH_1` — currently the only untested claim in the capability matrix — for
-negligible cost.
+The call silo carries generated text artefacts for volume, plus **genuine audio files**
+committed under `data/audio/`, `PUT` to `RAW.AUDIO_STAGE` and transcribed for real with
+`AI_TRANSCRIBE`. Fixtures are generated locally with the macOS `say` command; that is a
+build-time fixture, not a runtime dependency, so the no-external-services rule holds at
+runtime. This proves `AI_TRANSCRIBE` actually works in `AWS_AP_SOUTH_1` for negligible
+cost.
 
-`CURATED.CALL_TRANSCRIPT` is the union of the transcribed audio and the bulk text, so
-everything downstream sees one grain and cannot tell which rows came from audio.
+**As built:** 1,200 generated artefacts plus **three** transcribed audio files, 1,203 in
+total — not the ~25,000 and ~12 planned above. There is no separate
+`CURATED.CALL_TRANSCRIPT` object either: transcribed audio lands on the same
+`RAW.INTERACTION` grain as the text, so everything downstream sees one grain and cannot
+tell which rows came from audio.
 
-### D2. One documented non-SQL step in the rebuild
+### D2. The documented non-SQL steps in the rebuild
 
-`sql/` remains authoritative for every database object. Exactly one step is not SQL:
-copying `app/` to `APP.APP_STAGE` before `sql/32_streamlit.sql` runs. `run.sh` wraps
-the whole sequence so the rebuild is one command and the seam is explicit rather than
-hidden.
+`sql/` remains authoritative for every database object. Two steps are not SQL, and
+`run.sh` wraps the whole sequence so the rebuild is one command and both seams are
+explicit rather than hidden.
 
 ```
-sql/00 … sql/31   →   snow stage copy app/ @APP.APP_STAGE   →   sql/32_streamlit.sql
+sql/00 … sql/05
+  →  snow stage copy data/audio/ @RAW.AUDIO_STAGE
+sql/06 … sql/19
+  →  snow stage copy app/ @APP.APP_STAGE
+  →  snow stage copy app/.streamlit/config.toml @APP.APP_STAGE/.streamlit/
+sql/20_streamlit.sql
 ```
+
+**As built, the app copy is two commands, not one.** A recursive stage copy silently
+skips dot-directories, so `app/.streamlit/config.toml` was not uploaded and nothing
+errored — the app ran with Streamlit's default red accent, which in this app collides
+with the red that means "a compliance rule blocked this". `sql/20`'s own guard counts
+the theme file for that reason.
 
 ### D3. Tiered models, token-gated
 
@@ -526,6 +574,13 @@ sql/00 … sql/31   →   snow stage copy app/ @APP.APP_STAGE   →   sql/32_str
 | Call transcription | `AI_TRANSCRIBE` default | ~12 files |
 | NBA reason + talking points, demo slice | `claude-opus-5` | top 3 actions × ~200 customers |
 | NBA reason, remainder of book | templated from deterministic drivers, no LLM | ~4,800 customers |
+
+**As built, the tiering decision held but every tier moved down.**
+`claude-haiku-4-5` generated the corpus, enriched it, and wrote the rationale layer;
+`claude-sonnet-4-5` wrote the 16 product documents for `SEARCH_PRODUCT_DOCS`;
+`AI_TRANSCRIBE` handled three audio fixtures; `llama3.3-70b` is used only as a
+token-sizing proxy because `AI_COUNT_TOKENS` rejects the `claude-4-x` families. No
+pipeline script calls `claude-opus-5`.
 
 5,000 customers. `AI_COUNT_TOKENS` projects input tokens before every batch and the
 projection is printed by the script; no batch runs blind. The templated fallback means
@@ -686,6 +741,11 @@ servicing obligation ever became eligible without consent on its channel.
 ---
 
 ## 10. Build milestones
+
+> **This table is the original plan, kept as the historical record.** Script
+> numbering and several object names changed during the build — the full list of
+> deltas is in §0 above, and §6 carries the as-built layout. Read the milestone
+> table for the dependency reasoning, not for what exists on disk.
 
 Dependencies are strict: a milestone may not start until its predecessors are green.
 

@@ -51,8 +51,11 @@ a metric, and leaving a second copy in `09` would have guaranteed drift. Both
 files' headers record it from their own side.
 
 Every database object is created by a numbered script in `sql/`, run in order.
-There is exactly one documented non-SQL step in the whole rebuild (copying `app/`
-to a stage before the Streamlit script) — see `PROJECT_BRIEF.md` D2.
+There are two documented non-SQL steps in the whole rebuild: copying the audio
+fixtures to `RAW.AUDIO_STAGE` before `sql/06`, and copying `app/` to
+`APP.APP_STAGE` before `sql/20` — the second of which is two commands, because a
+recursive stage copy silently skips dot-directories and would leave the theme
+file behind. `run.sh` sequences all of them; see `PROJECT_BRIEF.md` D2.
 
 ## The retrieval layer
 

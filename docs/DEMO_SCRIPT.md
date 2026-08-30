@@ -107,16 +107,26 @@ the screen states the trade-off and derives the break-even term instead.
 
 ---
 
-## 5. The rebuild proof (2:50–3:00, or held for Q&A)
+## 5. The rebuild path (2:50–3:00, or held for Q&A)
 
-**Say, holding up or screen-sharing the rebuild log:**
+**Show:** the `sql/` directory, or `run.sh` open in an editor.
+
+**Say:**
 > "Every object here — eighteen actions, two search services, the semantic view,
-> the agent, this app — comes from one numbered SQL script per object, run in
-> order by `run.sh` from an empty database. This log is that run, timed, on this
-> account."
+> the agent, this app — comes from one numbered SQL script per object. Twenty-three
+> of them, plus two stage copies that cannot be SQL, sequenced by `run.sh` from an
+> empty database. Each script asserts its own result before the next one runs."
 
-If time is tight, cut this beat from the live walkthrough and reference
-`docs/rebuild_logs/rebuild-<timestamp>.log` in the leave-behind instead.
+**Say this next part, in these words, if asked whether it has been run:**
+> "The script is written and validated, not executed as a live drop-and-rebuild.
+> Trial credits made that a real risk of stranding the submission — the corpus
+> regeneration alone measured 13.55 credits against about 19 remaining. So this
+> is provable by inspection, not by a timed log, and the README says exactly
+> that."
+
+**Do not claim a rebuild log exists.** There is no `docs/rebuild_logs/`. The
+honest version above is stronger than an assertion a judge can check and
+disprove in thirty seconds.
 
 ---
 
