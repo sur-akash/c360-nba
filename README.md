@@ -35,6 +35,12 @@ sql/16_semantic_view_nba.sql  GOLD.SV_CUSTOMER_360 for Cortex Analyst
 sql/17_nba_tool.sql           APP.GET_NEXT_BEST_ACTIONS — the agent's action tool
 sql/18_agent.sql              APP.RM_COPILOT — four tools  <-- the agent
 sql/18b_agent_grants_admin.sql  the one grant the build role cannot make
+sql/19_app_objects.sql        stage, ACTION_FEEDBACK, and the app's read views
+sql/20_streamlit.sql          APP.C360_APP, the last object in the build
+run.sh                        full rebuild, both non-SQL stage-copy steps included
+tools/reset_demo.sh           clear demo state between judging sessions (zero credits)
+docs/DEMO_SCRIPT.md           the 3-minute walkthrough, timed, beat by beat
+evals/REPORT.md               consolidated pass rate across both eval suites
 ```
 
 `09` no longer creates the semantic view. It creates the presentation shims the
@@ -78,6 +84,32 @@ dilution, the top-heavy corpus, and the non-portability of absolute score
 thresholds.
 
 ---
+
+## Demo
+
+`docs/DEMO_SCRIPT.md` is the timed, beat-by-beat walkthrough -- six beats, three
+minutes, exact words for each one, built from real customers and real
+adversarial questions already run through the agent (see `evals/`).
+
+Between judging sessions, run `tools/reset_demo.sh` to clear recorded
+Accept/Reject decisions and resume the search services if they were suspended.
+It costs zero credits. **Do not re-run `run.sh` between demos** -- that drops
+and regenerates the entire corpus and spends real credits for no demo benefit;
+run it once, keep the log, and treat that log as the submission artifact.
+
+**`run.sh` itself has not been executed as a live drop-and-rebuild.** It is
+written, `bash -n` clean, and sequences every object correctly against the
+connections each step actually needs (see its own header). It was not run
+live because trial spend by the time it was ready left ~18.9 credits against
+a realistic 22-30 credit cost for the full sequence -- a real risk of leaving
+the database half-rebuilt with no budget to finish or revert it, for a proof
+that a working, already-deployed, already-screenshotted app does not strictly
+need. The cost basis for that estimate is measured, not guessed: M3's 13.56
+credits for corpus generation and enrichment alone, in the cost table above.
+Given the choice between a live re-run that might strand the submission and a
+scripted, reviewable rebuild path that was deliberately not gambled on, this
+build kept the working app.
+
 
 ## Cost
 
@@ -246,7 +278,9 @@ call.
 
 ## What the evaluations found
 
-`evals/` holds two, and both found something the build had got wrong.
+`evals/REPORT.md` is the consolidated pass rate across both suites -- 33 cases, 20/20 governed on the analyst side, 12/13 on the agent side with 4/4 adversarial refusals correct. Read it first for the numbers; the two files below for the reasoning behind them.
+
+`evals/` holds two suites, and both found something the build had got wrong.
 
 **`run_analyst_evals.py`** — 20 questions, scored on whether the generated SQL
 went *through* `SEMANTIC_VIEW()` before it is scored on the number. Final state
@@ -270,3 +304,45 @@ Read `evals/agent_transcripts.md` §2 for that chain, and §4 for what the four
 adversarial questions establish — including the run where the agent, asked to
 speculate about a customer's health so the RM could "pitch appropriately",
 declined and then caught the implication the question had buried.
+
+
+---
+
+## Limitations, stated rather than hidden
+
+**One rationale row imputed distress it shouldn't have.** `sql/15_nba_publish.sql`
+(search `1887`) documents a generated rationale that framed a clean, unbroken
+repayment history as "cash flow pressure" to justify a personal loan -- correct
+arithmetic and a correctly eligible action, wrong sentence. The documented fix is
+a prompt rule forbidding a distress reading of a positive signal; not applied,
+because it was one row out of thousands and the pattern didn't recur.
+
+**"Sales versus care" is a false binary the schema used to assume.** Fixing a
+governance failure in the agent (`evals/agent_transcripts.md` §2) revealed a
+third class: 339 `RETENTION` actions -- early renewal reminders, lapsed-policy
+win-backs -- that are non-sales but sit outside the protective care boundary.
+Any earlier claim of a clean two-way split in this project predates that finding.
+
+**Two eval partials remain partials.** S4 drops the terms half of a compound
+question once permission is refused (`evals/agent_transcripts.md` §3); A5 cites
+a product code without the clause ID its own tool contract requires. Both are
+diagnosed, neither is fixed -- see `evals/REPORT.md` for why each was left as-is
+rather than patched under time pressure.
+
+**Guardrail-case coverage is 6, not the 8 originally scoped.** Four hard
+adversarial refusals (A1-A4, 4/4 correct) plus two suppression-reporting
+questions (S2, S6). Closing the gap to 8 needs two more live agent runs, which
+cost credits not spent given the balance below.
+
+**The full rebuild (`run.sh`) is scripted and validated, not executed live.**
+See the Demo section above for the credit math. The rebuild path is provable by
+inspection -- one numbered script per object, two documented non-SQL steps, both
+admin-only steps isolated to their own files -- but "provable by inspection" and
+"proven by a timed log" are different claims, and this submission only makes
+the first one.
+
+**Trial budget at time of writing: ~$40 of $400, ~18.9 credits.** Spend
+concentrated in `SNOWFLAKE_COCO_CLI` -- the interactive build-agent's own
+orchestration cost, not the data pipeline or the app -- which is a real cost of
+building this way and not one visible from the resource monitor alone (see
+"The resource monitor does not mean what it looks like" above).
