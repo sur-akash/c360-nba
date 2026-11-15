@@ -39,6 +39,8 @@ sql/19_app_objects.sql        stage, ACTION_FEEDBACK, and the app's read views
 sql/20_streamlit.sql          APP.C360_APP, the last object in the build
 run.sh                        full rebuild, both non-SQL stage-copy steps included
 tools/reset_demo.sh           clear demo state between judging sessions (zero credits)
+tools/run_tests.sh            the app test suite; offline by default (zero credits)
+tests/                        what it runs -- see tests/README.md
 docs/DEMO_SCRIPT.md           the 3-minute walkthrough, timed, beat by beat
 evals/REPORT.md               consolidated pass rate across both eval suites
 ```
