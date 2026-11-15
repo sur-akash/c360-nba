@@ -1,0 +1,13 @@
+# Local development only: the test suite (tests/) and the preview tools (tools/).
+# The deployed app does NOT use this file -- Streamlit in Snowflake resolves
+# app/environment.yml from the Snowflake Anaconda channel.
+#
+#   python3 -m venv /tmp/c360venv && /tmp/c360venv/bin/pip install -r requirements-dev.txt
+#
+# Suite verified on streamlit 1.50.0 (the newest that installs on Python 3.9,
+# with pytest 8.4.2) and on streamlit 1.65.0 (Python 3.10, pytest 9.2.0).
+streamlit>=1.37
+pandas
+altair
+snowflake-snowpark-python
+pytest>=8
