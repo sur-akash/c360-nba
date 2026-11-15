@@ -218,6 +218,16 @@ def test_reset_script_clears_only_the_feedback_table():
     assert "DROP " not in reset.upper().replace("DROP AND", "")
 
 
+def test_admin_script_grants_read_session_to_the_app_owner_role():
+    """DECIDED_BY is CURRENT_USER(); in Streamlit in Snowflake that needs READ
+    SESSION on the role that owns the app. The role is whoever runs sql/20."""
+    owner = re.search(r"USE ROLE (\w+);", SQL["20_streamlit.sql"]).group(1)
+    assert re.search(rf"GRANT READ SESSION ON ACCOUNT TO ROLE {owner};",
+                     SQL["18b_agent_grants_admin.sql"])
+    run = (ROOT / "run.sh").read_text()
+    assert run.index("sql/18b_agent_grants_admin.sql") < run.index("sql/20_streamlit.sql")
+
+
 def test_tests_are_not_staged_with_the_app():
     """Everything under app/ is copied to the stage; test code must not live there."""
     stray = [p.name for p in (ROOT / "app").rglob("*")

@@ -1,5 +1,5 @@
 /* ============================================================================
-   18b_agent_grants_admin.sql  —  the one grant COCO_BUILDER cannot make
+   18b_agent_grants_admin.sql  —  the grants COCO_BUILDER cannot make
    ----------------------------------------------------------------------------
    ***RUN ON THE coco_admin CONNECTION***
 
@@ -46,5 +46,25 @@ USE ROLE ACCOUNTADMIN;
 GRANT ROLE COCO_BUILDER TO ROLE SYSADMIN;
 GRANT USAGE ON AGENT C360_NBA.APP.RM_COPILOT TO ROLE ACCOUNTADMIN;
 
-/* Verify: COCO_BUILDER should now be granted to the user AND to SYSADMIN. */
+/* ----------------------------------------------------------------------------
+   READ SESSION -- the second grant COCO_BUILDER cannot make, and the one the
+   app's write-back depends on.
+
+   APP.ACTION_FEEDBACK.DECIDED_BY is CURRENT_USER() and NOT NULL (sql/19 PART 2).
+   CURRENT_USER() is a context function, and a Streamlit in Snowflake app runs
+   with owner's rights: Snowflake requires the app OWNER role to hold the global
+   READ SESSION privilege before a context function resolves inside the app.
+
+   This was missing from the build until the Tokyo migration. It cannot be seen
+   from a laptop: tools/preview.py and the test suite run on your own session,
+   where CURRENT_USER() always works, so every local check passes while Accept
+   and Reject in the deployed app depend on a grant nobody made. It is checked
+   by tests/test_live_contract.py::test_app_owner_role_holds_read_session, and
+   the only complete proof is clicking Accept once in the deployed app.
+   ---------------------------------------------------------------------------- */
+GRANT READ SESSION ON ACCOUNT TO ROLE COCO_BUILDER;
+
+/* Verify: COCO_BUILDER should now be granted to the user AND to SYSADMIN, and
+   should hold READ SESSION on the account. */
 SHOW GRANTS OF ROLE COCO_BUILDER;
+SHOW GRANTS TO ROLE COCO_BUILDER;

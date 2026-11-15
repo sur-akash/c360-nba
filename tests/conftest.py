@@ -166,6 +166,20 @@ def button(at: AppTest, label: str):
     return hits[0]
 
 
+def click_through_disabled(at: AppTest, key: str) -> AppTest:
+    """Click a button that should be disabled, to prove the write behind it is
+    guarded as well. Older AppTest delivers the click (like one already in
+    flight when the card re-rendered); newer AppTest refuses, as a browser does.
+    Either way the caller then asserts nothing was written."""
+    try:
+        at.button(key=key).click().run()
+    except Exception as e:  # noqa: BLE001 - only the "disabled widget" refusal is expected
+        if "disabled" not in str(e):
+            raise
+    assert_clean(at, f"clicking disabled button {key}")
+    return at
+
+
 def expander(at: AppTest, startswith: str):
     hits = [e for e in at.expander if e.label.startswith(startswith)]
     assert hits, (f"no expander starting {startswith!r}; "

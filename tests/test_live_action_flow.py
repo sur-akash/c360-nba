@@ -19,7 +19,8 @@ CURRENT_USER()/CURRENT_TIMESTAMP() resolving, and the QUALIFY read-back.
 import pytest
 import streamlit as st
 
-from conftest import assert_clean, button, goto, launch, page, rows, scalar
+from conftest import (assert_clean, button, click_through_disabled, goto, launch, page,
+                      rows, scalar)
 
 pytestmark = [pytest.mark.live, pytest.mark.live_write]
 TIMEOUT = 300
@@ -79,15 +80,29 @@ def screen(live, target):
     return at
 
 
+def make_acceptable(screen, cid, code):
+    """Accept is disabled on a card whose latest decision is already ACCEPTED
+    (say, from a rehearsal). Record a rejection first so it can be accepted; the
+    ledger tracks that row and removes it with the rest."""
+    if screen.button(key=f"acc_{cid}_{code}").disabled:
+        screen.button(key=f"rej_{cid}_{code}").click().run()
+        button(screen, "Record rejection").click().run()
+        assert_clean(screen, "clearing an earlier acceptance")
+        assert not screen.button(key=f"acc_{cid}_{code}").disabled
+
+
 def test_accept_writes_the_published_recommendation_stamped_by_the_server(screen, ledger, live, target):
     cid, cards = target
     card = cards[0]
+    make_acceptable(screen, cid, card["ACTION_CODE"])
+    already = len(ledger())
     recorded = int(scalar(live, "SELECT DECISIONS_RECORDED FROM APP.V_PORTFOLIO_KPI"))
 
     screen.button(key=f"acc_{cid}_{card['ACTION_CODE']}").click().run()
     assert_clean(screen, "accepting on the live table")
 
-    (row,) = ledger()
+    assert len(ledger()) == already + 1
+    row = ledger()[-1]
     assert row["ACTION_CODE"] == card["ACTION_CODE"]
     assert int(row["ACTION_RANK"]) == int(card["ACTION_RANK"])
     assert row["DECISION"] == "ACCEPTED"
@@ -105,6 +120,20 @@ def test_accept_writes_the_published_recommendation_stamped_by_the_server(screen
     assert f"<b>{recorded + 1}</b> RM decisions recorded" in side.replace(",", "")
 
 
+def test_an_accepted_card_cannot_be_accepted_twice(screen, ledger, target):
+    cid, cards = target
+    code = cards[0]["ACTION_CODE"]
+    make_acceptable(screen, cid, code)
+    screen.button(key=f"acc_{cid}_{code}").click().run()
+    assert_clean(screen)
+    written = len(ledger())
+
+    assert screen.button(key=f"acc_{cid}_{code}").disabled
+    assert not screen.button(key=f"rej_{cid}_{code}").disabled
+    click_through_disabled(screen, f"acc_{cid}_{code}")
+    assert len(ledger()) == written, "a repeated Accept wrote a duplicate row"
+
+
 def test_reject_stores_reason_and_free_text_exactly_as_typed(screen, ledger, target):
     cid, cards = target
     code = cards[0]["ACTION_CODE"]
@@ -117,7 +146,8 @@ def test_reject_stores_reason_and_free_text_exactly_as_typed(screen, ledger, tar
     button(screen, "Record rejection").click().run()
     assert_clean(screen, "recording a rejection on the live table")
 
-    (row,) = ledger()
+    assert len(ledger()) == 1
+    row = ledger()[-1]
     assert row["DECISION"] == "REJECTED" and row["REJECT_REASON"] == "DATA_LOOKS_WRONG"
     assert row["NOTE"] == HOSTILE_NOTE
     assert row["DECIDED_BY"] == ledger.me
@@ -135,6 +165,7 @@ def test_change_of_mind_keeps_both_rows_and_the_card_shows_the_latest(screen, le
     assert_clean(screen)
 
     assert [r["DECISION"] for r in ledger()] == ["REJECTED", "ACCEPTED"]
+    assert screen.button(key=f"acc_{cid}_{code}").disabled
     # What the cards should now show, derived from the table rather than assumed:
     # other cards may carry decisions from before this test.
     latest = rows(live, f"""
@@ -149,6 +180,7 @@ def test_change_of_mind_keeps_both_rows_and_the_card_shows_the_latest(screen, le
 
 def test_recorded_decisions_reach_the_impact_screen(screen, ledger, target):
     cid, cards = target
+    make_acceptable(screen, cid, cards[0]["ACTION_CODE"])
     screen.button(key=f"acc_{cid}_{cards[0]['ACTION_CODE']}").click().run()
     assert_clean(screen)
     goto(screen, "Impact")
