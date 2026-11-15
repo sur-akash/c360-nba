@@ -47,24 +47,19 @@ added (by `FEEDBACK_ID`, test customer and `CURRENT_USER()`). Do not run it whil
 recording decisions in the deployed app as the same user: a decision made on the
 test customer during the run would be deleted with the test rows.
 
-## Known gaps
+## What no test here can cover
 
-Three tests in `test_action_flow.py::TestKnownGaps` are `xfail(strict=True)`.
-Each states behaviour the app does not have yet; the marker has to be removed
-when the gap is closed.
+The app running inside Snowsight itself. Local runs use your own session, so
+anything that only bites under owner's rights cannot be reproduced locally. The
+case that matters: `DECIDED_BY` is `CURRENT_USER()` and NOT NULL, and Streamlit
+in Snowflake needs the app owner role to hold `READ SESSION` for a context
+function to resolve. `sql/18b_agent_grants_admin.sql` grants it and
+`test_live_contract.py::test_app_owner_role_holds_read_session` checks the
+account, but the only complete proof is clicking Accept once in the deployed app
+after any redeploy.
 
-1. Clicking Accept on an already-accepted card appends a second identical row,
-   so "RM decisions recorded" and "expected value accepted" count it twice.
-2. `write_feedback()` has no error handling: a failed INSERT is a raw traceback
-   on Customer 360.
-3. `DECIDED_BY` is `CURRENT_USER()` and NOT NULL. Snowflake requires the app
-   owner role to hold `READ SESSION` for context functions in Streamlit in
-   Snowflake, and no script in `sql/` grants it.
-   `test_live_contract.py::test_app_owner_role_holds_read_session` checks the
-   account; the fix is `GRANT READ SESSION ON ACCOUNT TO ROLE COCO_BUILDER;`
-   as ACCOUNTADMIN.
+## Streamlit versions
 
-Not covered by any test here: the app running inside Snowsight itself. Local
-runs use your own session, so a privilege that only bites under owner's rights
-(gap 3) cannot be reproduced locally. Click Accept once in the deployed app after
-any redeploy.
+Verified on Streamlit 1.50 (the newest that installs on Python 3.9) and 1.65.
+`conftest.py` carries one compatibility shim for the older version: its test
+harness keeps elements drawn before `st.rerun()`, which a browser never shows.

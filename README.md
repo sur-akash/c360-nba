@@ -34,7 +34,7 @@ sql/15_nba_publish.sql        GOLD.NEXT_BEST_ACTION, then tries to break it
 sql/16_semantic_view_nba.sql  GOLD.SV_CUSTOMER_360 for Cortex Analyst
 sql/17_nba_tool.sql           APP.GET_NEXT_BEST_ACTIONS — the agent's action tool
 sql/18_agent.sql              APP.RM_COPILOT — four tools  <-- the agent
-sql/18b_agent_grants_admin.sql  the one grant the build role cannot make
+sql/18b_agent_grants_admin.sql  the grants the build role cannot make (agent, READ SESSION)
 sql/19_app_objects.sql        stage, ACTION_FEEDBACK, and the app's read views
 sql/20_streamlit.sql          APP.C360_APP, the last object in the build
 run.sh                        full rebuild, both non-SQL stage-copy steps included

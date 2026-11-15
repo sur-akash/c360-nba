@@ -1115,9 +1115,19 @@ def render_action_card(r, prior, cid):
             unsafe_allow_html=True,
         )
 
+    # An accepted card cannot be accepted again. The log is append-only so that a
+    # change of mind is two rows, but the same decision twice is not a second
+    # decision -- it only inflates "RM decisions recorded" and the accepted
+    # expected value on the Impact screen. Reject stays live: that is how a
+    # change of mind is recorded, and a second rejection can carry a new reason.
+    # The button is disabled AND the write is guarded, so a click that was
+    # already in flight when the card re-rendered cannot slip through.
+    accepted = prior is not None and prior.DECISION == "ACCEPTED"
+
     key = f"{cid}_{r.ACTION_CODE}"
     b1, b2 = st.columns(2, gap="small")
-    if b1.button("Accept", key=f"acc_{key}", type="primary", use_container_width=True):
+    if b1.button("Accept", key=f"acc_{key}", type="primary", use_container_width=True,
+                 disabled=accepted) and not accepted:
         write_feedback(cid, r, "ACCEPTED", None, None)
     if b2.button("Reject", key=f"rej_{key}", use_container_width=True):
         st.session_state[f"rejopen_{key}"] = True
@@ -1142,15 +1152,29 @@ def render_action_card(r, prior, cid):
 
 def write_feedback(cid, r, decision, reason, note):
     """Append to APP.ACTION_FEEDBACK. DECIDED_BY is CURRENT_USER() resolved
-    server-side, so the actor cannot be supplied by the client."""
-    session.sql(f"""
-        INSERT INTO APP.ACTION_FEEDBACK
-          (CUSTOMER_ID, ACTION_CODE, ACTION_RANK, DECISION, REJECT_REASON,
-           NOTE, EXPECTED_VALUE_INR, DECIDED_BY, DECIDED_AT)
-        SELECT {int(cid)}, {lit(r.ACTION_CODE)}, {int(r.ACTION_RANK)},
-               {lit(decision)}, {lit(reason)}, {lit(note)},
-               {float(r.EXPECTED_VALUE_INR)}, CURRENT_USER(), CURRENT_TIMESTAMP()
-    """).collect()
+    server-side, so the actor cannot be supplied by the client.
+
+    CURRENT_USER() is a context function, and inside Streamlit in Snowflake the
+    app owner role needs READ SESSION for it to resolve -- granted in
+    sql/18b_agent_grants_admin.sql. DECIDED_BY is NOT NULL, so without the grant
+    this INSERT fails rather than recording an anonymous decision."""
+    try:
+        session.sql(f"""
+            INSERT INTO APP.ACTION_FEEDBACK
+              (CUSTOMER_ID, ACTION_CODE, ACTION_RANK, DECISION, REJECT_REASON,
+               NOTE, EXPECTED_VALUE_INR, DECIDED_BY, DECIDED_AT)
+            SELECT {int(cid)}, {lit(r.ACTION_CODE)}, {int(r.ACTION_RANK)},
+                   {lit(decision)}, {lit(reason)}, {lit(note)},
+                   {float(r.EXPECTED_VALUE_INR)}, CURRENT_USER(), CURRENT_TIMESTAMP()
+        """).collect()
+    except Exception as e:  # noqa: BLE001 - shown to the operator, not raised
+        # A failed write must not look like a recorded one, and must not replace
+        # the customer record with a stack trace in the middle of a call. Nothing
+        # is cleared and nothing reruns, so an open reject form keeps the reason
+        # and the note that were typed and the RM can simply try again.
+        st.error("Decision not recorded. Nothing was written, so you can try again.")
+        st.caption(f"{type(e).__name__}: {str(e)[:300]}")
+        return
     st.session_state[f"rejopen_{cid}_{r.ACTION_CODE}"] = False
     q.clear()
     st.rerun()

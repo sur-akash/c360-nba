@@ -17,7 +17,8 @@ import re
 
 import pytest
 
-from conftest import assert_clean, button, expander, goto, launch, page
+from conftest import (assert_clean, button, click_through_disabled, expander, goto,
+                      launch, page)
 from contract import REJECT_REASONS
 from fake_snowflake import (BLOCKED_CUSTOMER, CLEAN_CUSTOMER, DEFAULT_CUSTOMER,
                             VULNERABLE_CUSTOMER, SQLError)
@@ -372,38 +373,112 @@ class TestDecisionsDownstream:
 
 
 # =============================================================================
-# Known gaps. Each test states the behaviour the app SHOULD have and is marked
-# xfail(strict) because the app does not have it yet -- the suite stays green,
-# the gap stays visible, and the marker has to come off the day it is fixed.
+# Repeated decisions and failed writes
 # =============================================================================
 
-class TestKnownGaps:
-    @pytest.mark.xfail(strict=True, reason=(
-        "Accept on a card already accepted appends a second identical row, so "
-        "'RM decisions recorded' and 'expected value accepted' count it twice."))
+def acc(at, code=FIRST, cid=CID):
+    return at.button(key=f"acc_{cid}_{code}")
+
+
+def rej(at, code=FIRST, cid=CID):
+    return at.button(key=f"rej_{cid}_{code}")
+
+
+class TestRepeatedDecisions:
     def test_repeating_the_same_decision_does_not_write_a_duplicate(self, customer, fake):
         accept(customer)
-        accept(customer)
+        click_through_disabled(customer, f"acc_{CID}_{FIRST}")
         assert len(fake.feedback) == 1
+        assert decision_chips(customer) == [("ok", "Accepted")]
 
-    @pytest.mark.xfail(strict=True, reason=(
-        "write_feedback() has no error handling: a failed INSERT surfaces as a "
-        "raw traceback on the Customer 360 screen."))
-    def test_a_failed_write_is_reported_without_a_stack_trace(self, customer, fake):
-        fake.fail_matching[r"INSERT INTO APP\.ACTION_FEEDBACK"] = SQLError("warehouse suspended")
-        customer.button(key=f"acc_{CID}_{FIRST}").click().run()
+    def test_accept_is_disabled_once_accepted_and_reject_stays_live(self, customer):
+        assert not acc(customer).disabled
+        accept(customer)
+        assert acc(customer).disabled and not rej(customer).disabled
+        assert not acc(customer, SECOND).disabled      # other cards are untouched
+
+    def test_a_card_accepted_in_an_earlier_session_cannot_be_accepted_again(self, fake):
+        fake.seed_feedback(CID, FIRST, "ACCEPTED", by="PRIYA_V")
+        at = goto(launch(), "Customer 360")
+        assert acc(at).disabled
+        click_through_disabled(at, f"acc_{CID}_{FIRST}")
+        assert len(fake.feedback) == 1 and fake.inserts == []
+
+    def test_rejecting_an_accepted_card_makes_it_acceptable_again(self, customer, fake):
+        accept(customer)
+        reject(customer, reason="CUSTOMER_DECLINED")
+        assert not acc(customer).disabled
+        accept(customer)
+        assert [f["DECISION"] for f in fake.feedback] == ["ACCEPTED", "REJECTED", "ACCEPTED"]
+        assert acc(customer).disabled
+
+    def test_a_second_rejection_with_a_new_reason_is_recorded(self, customer, fake):
+        reject(customer, reason="WRONG_TIMING")
+        reject(customer, reason="WRONG_CHANNEL")
+        assert [f["REJECT_REASON"] for f in fake.feedback] == ["WRONG_TIMING", "WRONG_CHANNEL"]
+        assert decision_chips(customer) == [("risk", "Rejected · Wrong channel")]
+
+
+class TestFailedWrites:
+    """A write that fails must say so, must not look recorded, and must not put a
+    stack trace on the customer record."""
+
+    FAIL = r"INSERT INTO APP\.ACTION_FEEDBACK"
+
+    def errors(self, at):
+        return [e.value for e in at.error]
+
+    def test_a_failed_accept_is_reported_and_nothing_is_marked(self, customer, fake):
+        fake.fail_matching[self.FAIL] = SQLError("warehouse COCO_WH is suspended")
+        acc(customer).click().run()
         assert not customer.exception
-        assert customer.error and decision_chips(customer) == []
+        assert self.errors(customer) == [
+            "Decision not recorded. Nothing was written, so you can try again."]
+        assert any("warehouse COCO_WH is suspended" in c.value for c in customer.caption)
+        assert decision_chips(customer) == [] and fake.feedback == []
+        assert not acc(customer).disabled
 
-    @pytest.mark.xfail(strict=True, reason=(
-        "DECIDED_BY is CURRENT_USER() and NOT NULL. Snowflake requires READ SESSION "
-        "on the app owner role for context functions and no script grants it; if "
-        "CURRENT_USER() comes back NULL the INSERT fails. See tests/README.md."))
-    def test_missing_read_session_grant_does_not_crash_the_screen(self, monkeypatch):
+    def test_the_error_clears_and_the_write_succeeds_on_retry(self, customer, fake):
+        fake.fail_matching[self.FAIL] = SQLError("transient")
+        acc(customer).click().run()
+        fake.fail_matching.clear()
+        accept(customer)
+        assert self.errors(customer) == []
+        assert len(fake.feedback) == 1 and decision_chips(customer) == [("ok", "Accepted")]
+
+    def test_a_failed_rejection_keeps_the_form_open_with_what_was_typed(self, customer, fake):
+        fake.fail_matching[self.FAIL] = SQLError("transient")
+        open_reject(customer)
+        customer.selectbox(key=f"rr_{CID}_{FIRST}").set_value("DATA_LOOKS_WRONG")
+        customer.text_area(key=f"rn_{CID}_{FIRST}").set_value("Policy already lapsed.")
+        button(customer, "Record rejection").click().run()
+        assert not customer.exception and len(self.errors(customer)) == 1
+        assert form_open(customer) and fake.feedback == []
+        assert customer.selectbox(key=f"rr_{CID}_{FIRST}").value == "DATA_LOOKS_WRONG"
+        assert customer.text_area(key=f"rn_{CID}_{FIRST}").value == "Policy already lapsed."
+
+        fake.fail_matching.clear()
+        button(customer, "Record rejection").click().run()
+        assert_clean(customer)
+        (row,) = fake.feedback
+        assert (row["REJECT_REASON"], row["NOTE"]) == ("DATA_LOOKS_WRONG", "Policy already lapsed.")
+        assert not form_open(customer)
+
+    def test_the_rest_of_the_screen_still_renders_after_a_failed_write(self, customer, fake):
+        fake.fail_matching[self.FAIL] = SQLError("boom")
+        acc(customer).click().run()
+        assert "Suppressed by compliance" in page(customer)
+        assert len([b for b in customer.button if (b.key or "").startswith("acc_")]) == 3
+
+    def test_unresolved_current_user_is_reported_not_raised(self, monkeypatch):
+        """What the deployed app does if the owner role loses READ SESSION:
+        CURRENT_USER() is NULL, DECIDED_BY is NOT NULL, the INSERT is refused."""
         from conftest import _bind
         from fake_snowflake import FakeSession
         session = FakeSession(current_user=None)
         _bind(monkeypatch, session)
         at = goto(launch(), "Customer 360")
-        at.button(key=f"acc_{CID}_{FIRST}").click().run()
-        assert not at.exception
+        acc(at).click().run()
+        assert not at.exception and len(at.error) == 1
+        assert any("DECIDED_BY" in c.value for c in at.caption)
+        assert session.feedback == [] and decision_chips(at) == []
