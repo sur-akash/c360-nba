@@ -37,7 +37,10 @@ GRANT OPERATE ON WAREHOUSE COCO_WH TO ROLE COCO_BUILDER;
 GRANT USAGE        ON DATABASE C360_NBA TO ROLE COCO_BUILDER;
 GRANT CREATE SCHEMA ON DATABASE C360_NBA TO ROLE COCO_BUILDER;
 
-GRANT ROLE COCO_BUILDER TO USER SURAKASH;
+-- Grant to whoever runs this script, so the bootstrap works on any account
+-- without editing a user name.
+SET BUILD_USER = CURRENT_USER();
+GRANT ROLE COCO_BUILDER TO USER IDENTIFIER($BUILD_USER);
 
 -- Only if the models you want aren't hosted in your account's region.
 -- Harmless to run either way.
