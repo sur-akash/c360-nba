@@ -180,7 +180,7 @@ def test_environment_declares_every_third_party_import_from_the_snowflake_channe
     deps = set(re.findall(r"^\s+- ([a-z0-9\-]+)", env.split("dependencies:")[1], re.M))
     package = {"streamlit": "streamlit", "pandas": "pandas", "altair": "altair",
                "snowflake": "snowflake-snowpark-python"}
-    stdlib = {"html", "json"}
+    stdlib = {"base64", "datetime", "html", "json"}
     imported = set()
     for node in ast.parse(SRC).body:
         if isinstance(node, ast.Import):
@@ -226,6 +226,17 @@ def test_admin_script_grants_read_session_to_the_app_owner_role():
                      SQL["18b_agent_grants_admin.sql"])
     run = (ROOT / "run.sh").read_text()
     assert run.index("sql/18b_agent_grants_admin.sql") < run.index("sql/20_streamlit.sql")
+
+
+def test_hiding_the_toolbar_does_not_hide_the_expand_sidebar_button():
+    """Streamlit puts the button that reopens a collapsed sidebar inside
+    stToolbar. If the stylesheet hides the toolbar, it must show that button
+    again, or a collapsed sidebar can never be reopened -- a bug no AppTest run
+    can see, because AppTest does not render CSS."""
+    src = APP.read_text(encoding="utf-8")
+    if re.search(r'\[data-testid="stToolbar"\][^{]*\{[^}]*visibility:\s*hidden', src):
+        rule = re.search(r'\[data-testid="stExpandSidebarButton"\][^{]*\{([^}]*)\}', src)
+        assert rule and re.search(r"visibility:\s*visible\s*!important", rule.group(1))
 
 
 def test_tests_are_not_staged_with_the_app():

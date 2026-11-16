@@ -96,7 +96,7 @@ CREATE OR REPLACE STREAMLIT APP.C360_APP
   FROM            '@APP.APP_STAGE'
   MAIN_FILE     = 'streamlit_app.py'
   QUERY_WAREHOUSE = COCO_WH
-  TITLE         = 'C360 · Next Best Action'
+  TITLE         = 'Compass360 · Next Best Action'
   COMMENT       = 'Operator surface over the C360 next-best-action engine. Four screens: portfolio cockpit (KPIs, suppression by rule, ranked worklist), customer 360 (identity, timeline with transcripts and extracted signals, ranked action cards with evidence and accept/reject write-back, and the suppressed-actions panel), ask (APP.RM_COPILOT with tool calls and generated SQL exposed), impact (acceptance and channel-cost simulator quantifying the compliance layer in INR). Reads the nine APP views created by sql/19_app_objects.sql and writes only to APP.ACTION_FEEDBACK. Screens 1, 2 and 4 call no AI function; screen 3 spends Cortex credits per question asked.';
 
 ALTER STREAMLIT APP.C360_APP ADD LIVE VERSION FROM LAST;

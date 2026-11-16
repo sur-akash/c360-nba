@@ -1,5 +1,5 @@
 """
-C360 · Next Best Action — Streamlit in Snowflake
+Compass360 · Next Best Action — Streamlit in Snowflake
 ================================================================================
 M10. The operator's surface over the engine built by sql/00-18.
 
@@ -51,8 +51,10 @@ credits for every Cortex Analyst message. Nothing on any other screen can
 trigger it, and no question is ever sent without a user pressing enter.
 """
 
+import base64
 import html
 import json
+from datetime import datetime, timedelta, timezone
 
 import altair as alt
 import pandas as pd
@@ -62,8 +64,17 @@ from snowflake.snowpark.context import get_active_session
 AGENT = "C360_NBA.APP.RM_COPILOT"
 DEFAULT_CUSTOMER = 2397
 
+APP_NAME = "Compass360"
+TEAM_NAME = "Coskilled"
+# The team mark: the snowflake from coskilled.webp, cropped above the wordmark
+# (the name is set in type beside it, where it stays legible), 112px square,
+# WebP, inlined as a data URI. Inlined because an app in Streamlit in Snowflake
+# cannot fetch an external image and a data URI has no stage path to get wrong.
+# Empty means no logo is drawn and the masthead shows the team name alone.
+TEAM_LOGO = "data:image/webp;base64,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"
+
 st.set_page_config(
-    page_title="C360 · Next Best Action",
+    page_title="Compass360 · Next Best Action",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -74,30 +85,78 @@ session = get_active_session()
 # =============================================================================
 # 1 — DESIGN TOKENS
 # -----------------------------------------------------------------------------
-# One accent (--ac, a deep slate blue). Four severity tones that mean state and
-# only state. Everything else is neutral ink on a near-white canvas.
+# The palette is the Coskilled mark's: a glowing ice-blue snowflake on deep
+# navy. Navy (--night, --navy) is the frame -- the sidebar and the masthead --
+# and ice (--ice, #28B6E8) is used only on that frame, where it reads at 7:1.
+# On white the same ice is 2.4:1 and unreadable, so the working accent on light
+# surfaces (--ac, glacier) is the same hue taken deep enough for 6:1. Four
+# severity tones mean state and only state; everything else is neutral ink.
+#
+# Contrast is set for a projector and a shared screen, not for a laptop at arm's
+# length: secondary text is a dark slate rather than a mid grey, and every
+# surface has a visible edge on a canvas dark enough to separate it.
 # =============================================================================
 
 CSS = """
 <style>
 :root{
-  --ink:#15181C; --ink2:#3D454F; --mut:#6B7480; --mut2:#8B939E;
-  --rule:#E2E5E9; --rule2:#EDEFF2; --surf:#FFFFFF; --canvas:#F7F8FA;
-  --ac:#1B4D7A; --ac-soft:#EAF0F6;
-  --ok:#1B6E45;  --ok-bg:#E8F3ED;
-  --warn:#8A5B00; --warn-bg:#FBF2E1;
-  --risk:#A32219; --risk-bg:#FAEAE8;
-  --neu:#5A6472;  --neu-bg:#EFF1F4;
+  --ink:#15181C; --ink2:#2F363F; --mut:#4F5965; --mut2:#66707C;
+  --rule:#CDD3DB; --rule2:#E3E7EC; --edge:#B8C0CB; --surf:#FFFFFF; --canvas:#EBEFF4;
+  --ac:#0A6A94; --ac-dk:#08557A; --ac-soft:#DCEFF7;
+  --night:#0F1A2E; --navy:#182641; --ice:#28B6E8; --frost:#C9D6E5; --frost2:#93A6BD;
+  --ok:#17603C;  --ok-bg:#DDF0E5;
+  --warn:#7A4F00; --warn-bg:#FBEBC8;
+  --risk:#9B1F17; --risk-bg:#F9DEDA;
+  --neu:#48525F;  --neu-bg:#E6E9EE;
+  --lift:0 1px 2px rgba(16,24,40,.07);
   --num:"SF Mono",ui-monospace,"Roboto Mono",Menlo,Consolas,monospace;
 }
 
 /* Layout ------------------------------------------------------------------- */
 .stApp{background:var(--canvas);}
 .block-container{padding-top:3.2rem;padding-bottom:3rem;max-width:1580px;}
-[data-testid="stSidebar"]{background:var(--surf);border-right:1px solid var(--rule);}
+/* Sidebar: the logo's navy, so the frame of every screen carries the team's
+   colours. Text on it uses the frost tones, never the light-surface inks. */
+[data-testid="stSidebar"]{background:var(--night);border-right:1px solid #1E2C45;}
+[data-testid="stSidebar"] hr{border-top:1px solid rgba(201,214,229,.14);}
+/* The collapse arrow is drawn in dark ink by default (an icon-font <span> on
+   current Streamlit, an <svg> on older), which disappears on navy. */
+[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] *,
+[data-testid="stSidebar"] [data-testid="stSidebarHeader"] button *,
+[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] *{
+  color:var(--frost) !important;fill:var(--frost);}
+[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] button:hover{
+  background:rgba(201,214,229,.1) !important;}
+.sb-h{font-size:1rem;font-weight:700;letter-spacing:-.014em;color:#fff;line-height:1.25;}
+.sb-s{font-size:.75rem;color:var(--frost2);margin-top:.18rem;line-height:1.4;}
+.sb-stat{font-size:.78rem;color:var(--frost2);line-height:1.8;}
+.sb-stat b{color:#fff;font-weight:680;font-variant-numeric:tabular-nums;}
+.sb-note{font-size:.72rem;color:var(--frost2);line-height:1.6;}
+.sb-by{font-size:.73rem;color:var(--frost2);line-height:1.7;}
+.sb-by span{color:var(--frost);font-weight:660;}
+.sb-by a{color:#7FD3F5;text-decoration:none;border-bottom:1px solid rgba(127,211,245,.4);}
+.sb-by a:hover{color:#fff;border-bottom-color:#fff;}
 [data-testid="stSidebar"] .block-container{padding-top:1.2rem;}
 [data-testid="stHeader"]{background:transparent;}
 hr{margin:.9rem 0;border:none;border-top:1px solid var(--rule);}
+
+/* Masthead ----------------------------------------------------------------- */
+/* The one dark surface in the app. It carries the product name and the team,
+   and nothing else on any screen is allowed to be this heavy -- which is what
+   makes it read as the top of the page rather than as another panel. */
+.mast{display:flex;justify-content:space-between;align-items:center;gap:18px;
+      background:linear-gradient(115deg,var(--navy) 0%,#121D33 55%,#0C1424 100%);
+      border-radius:9px;padding:.85rem 1.2rem;margin:0 0 1.2rem;
+      box-shadow:inset 0 -2px 0 var(--ice);}
+.mast-n{font-size:1.55rem;font-weight:740;letter-spacing:-.024em;line-height:1.1;color:#fff;}
+.mast-s{font-size:.8rem;color:var(--frost);margin-top:.24rem;line-height:1.35;}
+.mast-team{display:flex;align-items:center;gap:.65rem;flex:none;}
+/* The mark keeps its own navy ground, so it sits on the band as a tile with a
+   faint edge rather than being cut out of it. */
+.mast-team img{height:48px;width:48px;border-radius:10px;display:block;flex:none;
+               border:1px solid rgba(201,214,229,.22);}
+.mast-tn{font-size:.98rem;font-weight:680;color:#fff;line-height:1.2;text-align:right;}
+.mast-ts{font-size:.72rem;color:var(--frost);line-height:1.3;text-align:right;}
 
 /* Typography --------------------------------------------------------------- */
 html,body,[class*="css"]{
@@ -107,167 +166,352 @@ html,body,[class*="css"]{
 }
 .num{font-family:var(--num);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
 
-.h-title{font-size:1.22rem;font-weight:640;letter-spacing:-.012em;margin:0;}
-.h-sub{font-size:.78rem;color:var(--mut);margin:.18rem 0 0;}
-.sec{font-size:.7rem;font-weight:680;letter-spacing:.085em;text-transform:uppercase;
-     color:var(--mut);margin:1.5rem 0 .55rem;}
-.sec:first-child{margin-top:0;}
+/* Streamlit styles <p> inside markdown with selectors more specific than a bare
+   class, so the classes that sit on a <p> restate size and colour as
+   !important. Without it every heading below renders at the body size. */
+p.h-title{font-size:1.5rem !important;font-weight:700;letter-spacing:-.018em;margin:0;
+          color:var(--ink) !important;line-height:1.2;}
+p.h-sub{font-size:.86rem !important;color:var(--mut) !important;margin:.25rem 0 0;}
+p.h-sub b{color:var(--ink);}
+/* Section headings carry an accent bar so the eye can find where one block of a
+   long screen ends and the next begins without reading the label. */
+p.sec{font-size:.8rem !important;font-weight:720;letter-spacing:.085em;text-transform:uppercase;
+      color:var(--ink) !important;margin:1.6rem 0 .6rem;padding-left:.55rem;line-height:1.25;
+      border-left:3px solid var(--ac);}
+p.sec:first-child{margin-top:0;}
 
 /* KPI tiles ---------------------------------------------------------------- */
+/* The top edge is the tile's state: accent for a plain measure, amber or red
+   where the number is something to worry about. Same severity tones as the
+   chips, so colour still means severity and nothing else. */
 .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:.3rem;}
-.kpi{background:var(--surf);border:1px solid var(--rule);border-radius:7px;
-     padding:.72rem .85rem .78rem;min-height:104px;display:flex;flex-direction:column;}
-.kpi-l{font-size:.665rem;font-weight:660;letter-spacing:.075em;text-transform:uppercase;
-       color:var(--mut);margin-bottom:.42rem;line-height:1.25;}
-.kpi-v{font-size:1.54rem;font-weight:600;letter-spacing:-.024em;line-height:1.06;
+.kpi{background:var(--surf);border:1px solid var(--rule);border-top:3px solid var(--ac);
+     border-radius:7px;box-shadow:var(--lift);
+     padding:.72rem .85rem .78rem;min-height:108px;display:flex;flex-direction:column;}
+.kpi.k-warn{border-top-color:#C98A00;}
+.kpi.k-risk{border-top-color:var(--risk);}
+.kpi.k-ok{border-top-color:var(--ok);}
+.kpi-l{font-size:.68rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+       color:var(--ink2);margin-bottom:.42rem;line-height:1.25;}
+.kpi-v{font-size:1.62rem;font-weight:640;letter-spacing:-.024em;line-height:1.06;
        color:var(--ink);font-family:var(--num);font-variant-numeric:tabular-nums;}
-.kpi-v.sm{font-size:1.3rem;}
-.kpi-f{font-size:.715rem;color:var(--mut);margin-top:auto;padding-top:.4rem;line-height:1.35;}
-.kpi-f b{color:var(--ink2);font-weight:600;}
+.kpi-v.sm{font-size:1.36rem;}
+.kpi-f{font-size:.735rem;color:var(--mut);margin-top:auto;padding-top:.4rem;line-height:1.35;}
+.kpi-f b{color:var(--ink);font-weight:640;}
 
 /* Chips -------------------------------------------------------------------- */
-.chip{display:inline-block;padding:.1rem .42rem;border-radius:4px;font-size:.685rem;
-      font-weight:620;line-height:1.5;white-space:nowrap;letter-spacing:.012em;
+.chip{display:inline-block;padding:.12rem .46rem;border-radius:4px;font-size:.7rem;
+      font-weight:660;line-height:1.5;white-space:nowrap;letter-spacing:.012em;
       border:1px solid transparent;}
 .chip+.chip{margin-left:4px;}
-.c-ok  {background:var(--ok-bg);  color:var(--ok);  border-color:#C6E2D3;}
-.c-warn{background:var(--warn-bg);color:var(--warn);border-color:#EBD9AE;}
-.c-risk{background:var(--risk-bg);color:var(--risk);border-color:#EDC7C2;}
-.c-neu {background:var(--neu-bg); color:var(--neu); border-color:#DCE0E6;}
-.c-ac  {background:var(--ac-soft);color:var(--ac);  border-color:#CBDCEA;}
-.chip-dim{opacity:.5;}
+.c-ok  {background:var(--ok-bg);  color:var(--ok);  border-color:#A6D1B9;}
+.c-warn{background:var(--warn-bg);color:var(--warn);border-color:#E0BE73;}
+.c-risk{background:var(--risk-bg);color:var(--risk);border-color:#E3A9A2;}
+.c-neu {background:var(--neu-bg); color:var(--neu); border-color:#C5CBD4;}
+.c-ac  {background:var(--ac-soft);color:var(--ac);  border-color:#9ACFE5;}
+.chip-dim{opacity:.62;}
 
 /* Worklist rows ------------------------------------------------------------ */
 .wl-head,.wl-row{display:grid;
   grid-template-columns:34px minmax(150px,1.5fr) minmax(190px,2fr) 92px 104px 74px minmax(150px,1.25fr);
   gap:10px;align-items:center;}
-.wl-head{font-size:.655rem;font-weight:680;letter-spacing:.08em;text-transform:uppercase;
-         color:var(--mut2);padding:0 .8rem .4rem;}
+.wl-head{font-size:.67rem;font-weight:720;letter-spacing:.08em;text-transform:uppercase;
+         color:var(--ink2);background:var(--neu-bg);border:1px solid var(--rule);
+         border-radius:6px;padding:.42rem .8rem;margin-bottom:.4rem;}
 .wl-row{background:var(--surf);border:1px solid var(--rule);border-radius:6px;
-        padding:.5rem .8rem;margin-bottom:-2px;}
-.wl-rk{font-family:var(--num);font-size:.76rem;color:var(--mut2);text-align:right;}
-.wl-nm{font-size:.845rem;font-weight:590;letter-spacing:-.006em;
+        box-shadow:var(--lift);padding:.52rem .8rem;margin-bottom:-2px;}
+.wl-rk{font-family:var(--num);font-size:.78rem;color:var(--mut);text-align:right;}
+.wl-nm{font-size:.865rem;font-weight:640;letter-spacing:-.006em;color:var(--ink);
        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.wl-nm span{display:block;font-size:.7rem;font-weight:400;color:var(--mut);}
-.wl-ac{font-size:.795rem;color:var(--ink2);
+.wl-nm span{display:block;font-size:.715rem;font-weight:400;color:var(--mut);}
+.wl-ac{font-size:.81rem;color:var(--ink);
        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.wl-ac span{display:block;font-size:.68rem;color:var(--mut2);letter-spacing:.02em;}
-.wl-ev{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.86rem;
-       font-weight:600;text-align:right;}
-.wl-pr{font-family:var(--num);font-size:.78rem;color:var(--ink2);text-align:right;}
+.wl-ac span{display:block;font-size:.695rem;color:var(--mut);letter-spacing:.02em;}
+.wl-ev{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.9rem;
+       font-weight:680;text-align:right;color:var(--ink);}
+.wl-pr{font-family:var(--num);font-size:.8rem;color:var(--ink2);text-align:right;}
 .r{text-align:right;}
 
 /* Cards -------------------------------------------------------------------- */
 .card{background:var(--surf);border:1px solid var(--rule);border-radius:7px;
-      padding:.8rem .9rem;margin-bottom:.6rem;}
-.card-top{border-top:3px solid var(--ac);}
-.card-care{border-top:3px solid var(--warn);}
+      box-shadow:var(--lift);padding:.8rem .9rem;margin-bottom:.6rem;}
+.card-top{border-top:4px solid var(--ac);}
+.card-care{border-top:4px solid #C98A00;}
 .card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
-.card-t{font-size:.9rem;font-weight:620;letter-spacing:-.008em;line-height:1.3;}
-.card-r{font-family:var(--num);font-size:.66rem;color:var(--mut2);
-        border:1px solid var(--rule);border-radius:3px;padding:.05rem .3rem;flex:none;}
+.card-t{font-size:.95rem;font-weight:680;letter-spacing:-.008em;line-height:1.3;color:var(--ink);}
+.card-r{font-family:var(--num);font-size:.68rem;font-weight:600;color:var(--ink2);
+        border:1px solid var(--edge);border-radius:3px;padding:.05rem .32rem;flex:none;}
 .card-ev{font-family:var(--num);font-variant-numeric:tabular-nums;
-         font-size:1.16rem;font-weight:620;letter-spacing:-.02em;margin:.42rem 0 .05rem;}
-.card-evl{font-size:.665rem;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;}
-.card-x{font-size:.815rem;line-height:1.52;color:var(--ink2);margin:.55rem 0 0;}
-.disc{background:var(--warn-bg);border:1px solid #EBD9AE;border-radius:5px;
-      padding:.42rem .55rem;font-size:.735rem;color:#6E4900;line-height:1.45;margin-top:.55rem;}
-.disc b{display:block;font-size:.635rem;text-transform:uppercase;letter-spacing:.075em;
+         font-size:1.32rem;font-weight:680;letter-spacing:-.02em;margin:.45rem 0 .05rem;}
+.card-evl{font-size:.675rem;font-weight:600;color:var(--mut);text-transform:uppercase;
+          letter-spacing:.07em;}
+.card-x{font-size:.83rem;line-height:1.52;color:var(--ink2);margin:.55rem 0 0;}
+.disc{background:var(--warn-bg);border:1px solid #E0BE73;border-radius:5px;
+      padding:.45rem .6rem;font-size:.75rem;color:#5C3D00;line-height:1.45;margin-top:.55rem;}
+.disc b{display:block;font-size:.645rem;text-transform:uppercase;letter-spacing:.075em;
         margin-bottom:.15rem;color:var(--warn);}
 
 /* Left rail panel ---------------------------------------------------------- */
 .pan{background:var(--surf);border:1px solid var(--rule);border-radius:7px;
-     padding:.8rem .9rem;margin-bottom:.6rem;}
-.pan-h{font-size:.665rem;font-weight:680;letter-spacing:.08em;text-transform:uppercase;
-       color:var(--mut);margin:0 0 .55rem;}
-.kv{display:flex;justify-content:space-between;gap:10px;padding:.22rem 0;font-size:.795rem;
+     box-shadow:var(--lift);padding:.8rem .9rem;margin-bottom:.6rem;}
+p.pan-h{font-size:.74rem !important;font-weight:720;letter-spacing:.08em;text-transform:uppercase;
+        color:var(--ink2) !important;margin:0 0 .55rem;}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:.24rem 0;font-size:.81rem;
     border-bottom:1px solid var(--rule2);}
 .kv:last-child{border-bottom:none;}
 .kv-k{color:var(--mut);flex:none;}
-.kv-v{text-align:right;font-weight:560;color:var(--ink);}
+.kv-v{text-align:right;font-weight:620;color:var(--ink);}
 .kv-v.n{font-family:var(--num);font-variant-numeric:tabular-nums;}
-.nm-big{font-size:1.12rem;font-weight:650;letter-spacing:-.016em;line-height:1.2;}
-.nm-sub{font-size:.755rem;color:var(--mut);margin-top:.12rem;}
+.nm-big{font-size:1.16rem;font-weight:700;letter-spacing:-.016em;line-height:1.2;}
+.nm-sub{font-size:.77rem;color:var(--mut);margin-top:.12rem;}
 
 /* Timeline ----------------------------------------------------------------- */
 .tl{display:grid;grid-template-columns:92px 128px 1fr;gap:10px;align-items:baseline;
-    padding:.4rem .7rem;border-bottom:1px solid var(--rule2);background:var(--surf);}
+    padding:.42rem .7rem;border-bottom:1px solid var(--rule2);background:var(--surf);
+    border-left:1px solid var(--rule);border-right:1px solid var(--rule);}
 .tl:first-of-type{border-radius:6px 6px 0 0;border-top:1px solid var(--rule);}
-.tl-d{font-family:var(--num);font-size:.735rem;color:var(--mut);}
+.tl-d{font-family:var(--num);font-size:.75rem;color:var(--ink2);}
 .tl-t{font-size:.665rem;font-weight:660;letter-spacing:.045em;color:var(--ink2);
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tl-x{font-size:.79rem;color:var(--ink2);line-height:1.45;}
+.tl-x{font-size:.805rem;color:var(--ink2);line-height:1.45;}
 .tl-x b{font-weight:600;color:var(--ink);}
 
 /* Transcript --------------------------------------------------------------- */
-.tr{background:#FBFCFD;border:1px solid var(--rule);border-left:3px solid var(--ac);
-    border-radius:5px;padding:.62rem .75rem;font-size:.8rem;line-height:1.62;
+.tr{background:#F6F8FA;border:1px solid var(--rule);border-left:4px solid var(--ac);
+    border-radius:5px;padding:.62rem .75rem;font-size:.815rem;line-height:1.62;
     color:var(--ink2);white-space:pre-wrap;}
 
 /* Suppression -------------------------------------------------------------- */
-.sup{background:var(--surf);border:1px solid var(--rule);border-left:3px solid var(--risk);
+.sup{background:var(--surf);border:1px solid var(--rule);border-left:4px solid var(--risk);
      border-radius:5px;padding:.55rem .7rem;margin-bottom:.42rem;}
 .sup-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
-.sup-t{font-size:.83rem;font-weight:600;}
-.sup-x{font-size:.745rem;color:var(--mut);margin-top:.28rem;line-height:1.45;}
+.sup-t{font-size:.85rem;font-weight:660;color:var(--ink);}
+.sup-x{font-size:.76rem;color:var(--mut);margin-top:.28rem;line-height:1.45;}
 .sup-x code{background:var(--neu-bg);border-radius:3px;padding:.04rem .26rem;
             font-family:var(--num);font-size:.71rem;color:var(--ink2);}
 
 /* Tables ------------------------------------------------------------------- */
 table.t{width:100%;border-collapse:collapse;background:var(--surf);
-        border:1px solid var(--rule);border-radius:6px;overflow:hidden;}
-table.t th{font-size:.655rem;font-weight:680;letter-spacing:.075em;text-transform:uppercase;
-           color:var(--mut2);text-align:left;padding:.46rem .7rem;
-           border-bottom:1px solid var(--rule);background:#FCFCFD;}
-table.t td{padding:.42rem .7rem;font-size:.795rem;border-bottom:1px solid var(--rule2);
+        border:1px solid var(--rule);border-radius:6px;overflow:hidden;box-shadow:var(--lift);}
+table.t th{font-size:.67rem;font-weight:720;letter-spacing:.075em;text-transform:uppercase;
+           color:var(--ink2);text-align:left;padding:.5rem .7rem;
+           border-bottom:1px solid var(--rule);background:var(--neu-bg);}
+table.t td{padding:.44rem .7rem;font-size:.81rem;border-bottom:1px solid var(--rule2);
            color:var(--ink2);}
 table.t tr:last-child td{border-bottom:none;}
 table.t td.n{font-family:var(--num);font-variant-numeric:tabular-nums;text-align:right;
-             color:var(--ink);font-weight:560;}
-table.t td.tot{font-weight:680;color:var(--ink);border-top:1px solid var(--rule);}
+             color:var(--ink);font-weight:600;}
+table.t td.tot{font-weight:720;color:var(--ink);border-top:2px solid var(--edge);
+               background:#F6F8FA;}
 
 /* Streamlit overrides ------------------------------------------------------ */
 [data-testid="stExpander"]{border:none !important;background:transparent !important;}
 [data-testid="stExpander"] details{border:1px solid var(--rule) !important;
   border-radius:6px !important;background:var(--surf) !important;margin-bottom:.3rem;}
-[data-testid="stExpander"] summary{font-size:.755rem !important;color:var(--ac) !important;
-  font-weight:600 !important;padding:.4rem .7rem !important;}
+[data-testid="stExpander"] summary{font-size:.78rem !important;color:var(--ac) !important;
+  font-weight:640 !important;padding:.42rem .7rem !important;}
 [data-testid="stExpander"] summary:hover{color:var(--ink) !important;}
 
-div.stButton>button{border-radius:5px;font-size:.775rem;font-weight:600;
-  border:1px solid var(--rule);background:var(--surf);color:var(--ink2);
-  padding:.28rem .7rem;transition:none;}
+div.stButton>button{border-radius:5px;font-size:.8rem;font-weight:640;
+  border:1px solid var(--edge);background:var(--surf);color:var(--ink);
+  padding:.3rem .7rem;transition:none;}
 div.stButton>button:hover{border-color:var(--ac);color:var(--ac);background:var(--ac-soft);}
 div.stButton>button[kind="primary"]{background:var(--ac);border-color:var(--ac);color:#fff;}
-div.stButton>button[kind="primary"]:hover{background:#16405F;color:#fff;}
+div.stButton>button[kind="primary"]:hover{background:var(--ac-dk);border-color:var(--ac-dk);color:#fff;}
+/* A disabled Accept is a recorded decision, not a broken control: keep it
+   legible as a button that has been used. */
+div.stButton>button:disabled{background:var(--neu-bg);border-color:var(--rule);
+  color:var(--mut2);opacity:1;}
 
-/* Sidebar nav buttons read as a nav list, not as four calls to action. */
+/* Sidebar nav buttons read as a nav list, not as four calls to action. The
+   active item glows the way the snowflake in the mark does: an ice bar and an
+   ice-tinted fill, so "where am I" is answerable from across a room. */
 [data-testid="stSidebar"] div.stButton>button{
   justify-content:flex-start;text-align:left;border:none;background:transparent;
-  font-size:.83rem;font-weight:560;color:var(--ink2);padding:.34rem .55rem;}
-[data-testid="stSidebar"] div.stButton>button:hover{background:var(--rule2);color:var(--ink);}
+  font-size:.88rem;font-weight:600;color:var(--frost);padding:.42rem .7rem;}
+[data-testid="stSidebar"] div.stButton>button>div{width:100%;justify-content:flex-start;}
+[data-testid="stSidebar"] div.stButton>button p{text-align:left;width:100%;}
+[data-testid="stSidebar"] div.stButton>button:hover{
+  background:rgba(201,214,229,.08);color:#fff;}
 [data-testid="stSidebar"] div.stButton>button[kind="primary"]{
-  background:var(--ac-soft);color:var(--ac);font-weight:680;
-  box-shadow:inset 2px 0 0 var(--ac);}
+  background:rgba(40,182,232,.16);color:#fff;font-weight:700;
+  box-shadow:inset 3px 0 0 var(--ice);}
 [data-testid="stSidebar"] div.stButton>button[kind="primary"]:hover{
-  background:var(--ac-soft);color:var(--ac);}
+  background:rgba(40,182,232,.22);color:#fff;}
+[data-testid="stSidebar"] div.stButton>button:focus-visible{
+  outline:2px solid var(--ice);outline-offset:1px;}
 
 /* The widget accent comes from primaryColor in app/.streamlit/config.toml, not
    from here -- the slider's filled track is an inline linear-gradient whose stops
    move as it is dragged, so a stylesheet can only replace the gradient wholesale
-   and lose the fill position. What remains below is sizing, not colour. */
+   and lose the fill position. What remains below is sizing and field edges. */
 [data-baseweb="tag"]{font-size:.71rem !important;font-weight:600 !important;}
-[data-testid="stChatInput"]{border-color:var(--rule) !important;}
+/* The chat bar's dock is white by default; match it to the page behind it. */
+[data-testid="stBottom"],[data-testid="stBottom"]>div,
+[data-testid="stBottomBlockContainer"]{background:var(--canvas) !important;}
 
 [data-testid="stMetricValue"]{font-family:var(--num);font-variant-numeric:tabular-nums;}
-[data-testid="stChatMessage"]{background:var(--surf);border:1px solid var(--rule);
-  border-radius:7px;padding:.7rem .85rem;}
-div[data-baseweb="select"]>div{border-radius:5px;font-size:.83rem;}
+/* Fields are white with a visible edge: on the grey canvas a field filled with
+   the theme's pale secondary colour is hard to tell from the page behind it. */
+div[data-baseweb="select"]>div{border-radius:5px;font-size:.84rem;
+  background-color:var(--surf) !important;border:1px solid var(--edge) !important;}
+div[data-baseweb="select"]>div>div{background-color:transparent !important;}
+div[data-baseweb="input"],div[data-baseweb="textarea"]{
+  background:var(--surf) !important;border:1px solid var(--edge) !important;border-radius:5px;}
+div[data-baseweb="base-input"],div[data-baseweb="input"] input,
+div[data-baseweb="textarea"] textarea{background:var(--surf) !important;}
 .stSlider label,.stMultiSelect label,.stSelectbox label,.stNumberInput label,
-.stRadio label,.stTextArea label{font-size:.72rem !important;font-weight:640 !important;
-  letter-spacing:.05em;text-transform:uppercase;color:var(--mut) !important;}
-[data-testid="stCaptionContainer"]{font-size:.735rem;color:var(--mut);}
+.stRadio label,.stTextArea label{font-size:.72rem !important;font-weight:680 !important;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--ink2) !important;}
+[data-testid="stCaptionContainer"],[data-testid="stCaptionContainer"] p{
+  font-size:.775rem !important;color:var(--mut) !important;opacity:1 !important;}
+/* Charts sit on a white surface with the same edge as every other panel. No
+   padding: Vega sizes the canvas to the container, so padding here would push
+   the right-hand end of the chart outside its own border. */
+[data-testid="stVegaLiteChart"],[data-testid="stArrowVegaLiteChart"]{
+  background:var(--surf);border:1px solid var(--rule);border-radius:7px;
+  box-shadow:var(--lift);overflow:hidden;}
+/* Ask: a chat, styled the way people expect a chat to look ------------------- */
+/* Everything here hangs off Streamlit's chat test ids, which only exist on the
+   Ask screen. Selectors cover the chat-input layout of Streamlit 1.4x/1.50 (the
+   versions Snowflake's warehouse runtime serves) and 1.6x. User and copilot
+   bubbles are told apart with :has() on the avatar; a browser without :has()
+   still gets readable left-aligned bubbles. */
+
+/* Copilot identity bar */
+.cop{display:flex;align-items:center;gap:.85rem;background:var(--surf);
+     border:1px solid var(--rule);border-radius:10px;padding:.7rem .95rem;
+     box-shadow:var(--lift);margin:0 0 1.1rem;}
+.cop img{width:46px;height:46px;border-radius:50%;flex:none;display:block;
+         box-shadow:0 0 0 2px var(--surf),0 0 0 4px var(--ice);}
+.cop-n{font-size:1.02rem;font-weight:720;color:var(--ink);line-height:1.2;}
+.cop-s{font-size:.8rem;color:var(--mut);margin-top:.15rem;line-height:1.4;}
+.cop-s code{font-family:var(--num);font-size:.74rem;color:var(--ink2);
+            background:var(--neu-bg);border-radius:3px;padding:.02rem .28rem;}
+.cop-tools{margin-left:auto;display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;
+           max-width:48%;}
+.cop-tools .chip+.chip{margin-left:0;}
+
+/* Welcome bubble in the empty state -- drawn, not a chat message, so it is not
+   part of the conversation sent to the agent. */
+.wel{display:flex;gap:.65rem;align-items:flex-start;margin:.1rem 0 1.1rem;}
+.wel img{width:34px;height:34px;border-radius:50%;flex:none;display:block;}
+.wel-b{background:var(--surf);border:1px solid var(--rule);border-radius:4px 16px 16px 16px;
+       padding:.7rem 1rem;font-size:.92rem;color:var(--ink2);line-height:1.55;
+       max-width:760px;box-shadow:var(--lift);}
+.wel-b b{color:var(--ink);}
+
+/* Suggestion chips */
+/* Every chip the same shape: two lines tall whether its question wraps or not,
+   text left-aligned and vertically centred. Streamlit centres button labels
+   through an inner flex box, so that box is overridden too. */
+[class*="st-key-sug_"] button{border-radius:14px !important;background:var(--surf) !important;
+  border:1px solid #9ACFE5 !important;color:var(--ac) !important;font-weight:600 !important;
+  font-size:.86rem !important;padding:.5rem 1rem !important;
+  min-height:3.6rem !important;height:3.6rem;line-height:1.35 !important;
+  display:flex !important;align-items:center !important;
+  justify-content:flex-start !important;text-align:left !important;}
+[class*="st-key-sug_"] button > div{justify-content:flex-start !important;width:100%;
+  text-align:left !important;}
+[class*="st-key-sug_"] button p{text-align:left !important;width:100%;margin:0 !important;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+[class*="st-key-sug_"] button:hover{background:var(--ac-soft) !important;border-color:var(--ac) !important;}
+
+/* The three tool cards: one grid row, equal height and width */
+.tools3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;
+        align-items:stretch;}
+.tools3 .pan{margin:0;height:100%;box-sizing:border-box;}
+@media (max-width:900px){.tools3{grid-template-columns:1fr;}}
+
+/* Between the pinned suggestions and the conversation */
+.convo-rule{border-top:1px solid var(--rule);margin:.4rem 0 .9rem;}
+
+/* Messages */
+[data-testid="stChatMessage"]{background:transparent !important;border:none !important;
+  padding:.2rem 0 !important;gap:.6rem;align-items:flex-start;}
+[data-testid="stChatMessageContent"]{background:var(--surf);border:1px solid var(--rule);
+  border-radius:4px 16px 16px 16px;padding:.65rem .95rem .95rem;box-shadow:var(--lift);
+  flex:0 1 auto !important;width:auto !important;max-width:min(880px,88%);min-width:0;
+  margin:0 !important;overflow:visible !important;}
+[data-testid="stChatMessageContent"] p{font-size:.92rem;line-height:1.58;}
+[data-testid="stChatMessageContent"] [data-testid="stExpander"] details{
+  background:#F4F7FA !important;margin-top:.35rem;}
+/* Your messages: right-hand side, in the accent, the way every messenger does it */
+[data-testid="stChatMessage"]:has(.msg-you){
+  flex-direction:row-reverse;}
+[data-testid="stChatMessage"]:has(.msg-you) [data-testid="stChatMessageContent"]{
+  background:var(--ac);border-color:var(--ac);border-radius:16px 4px 16px 16px;
+  max-width:min(640px,72%);}
+[data-testid="stChatMessage"]:has(.msg-you) [data-testid="stChatMessageContent"] *{
+  color:#fff !important;}
+[data-testid="stChatMessage"]:has(.msg-you) [data-testid="stChatMessageContent"] .msg-meta{
+  color:rgba(255,255,255,.78) !important;text-align:right;}
+/* Avatars: yours a person on a glacier disc, the copilot's the Coskilled
+   snowflake -- both inlined images, drawn round. */
+[data-testid="stChatMessage"] > img,
+[data-testid="stChatMessage"] [data-testid="stChatMessageAvatarImage"],
+[data-testid="stChatMessage"] [data-testid="stChatMessageAvatarImage"] img{
+  border-radius:50% !important;width:34px !important;height:34px !important;}
+.msg-meta{font-size:.72rem;color:var(--mut2);margin-top:.35rem;letter-spacing:.01em;
+           line-height:1.3;}
+
+/* Composer: one rounded field with a round send button. Streamlit draws the
+   field as nested boxes; the inner ones are flattened so only the outer edge
+   shows -- the general field rule above would otherwise draw a second,
+   offset box inside it on Streamlit 1.4x/1.50. */
+[data-testid="stChatInput"]{background:var(--surf) !important;border:1px solid var(--edge) !important;
+  border-radius:24px !important;box-shadow:0 3px 14px rgba(16,24,40,.09) !important;
+  padding:.25rem .5rem .25rem .95rem !important;overflow:hidden;}
+[data-testid="stChatInput"]:focus-within{border-color:var(--ac) !important;
+  box-shadow:0 0 0 3px rgba(10,106,148,.16),0 3px 14px rgba(16,24,40,.09) !important;}
+[data-testid="stChatInput"] div,
+[data-testid="stChatInput"] div[data-baseweb="textarea"],
+[data-testid="stChatInput"] div[data-baseweb="base-input"]{
+  background:transparent !important;border:none !important;box-shadow:none !important;
+  border-radius:0 !important;}
+[data-testid="stChatInputTextArea"],[data-testid="stChatInput"] textarea{
+  background:transparent !important;font-size:.95rem !important;color:var(--ink) !important;
+  padding-left:0 !important;}
+[data-testid="stChatInputTextArea"]::placeholder{color:var(--mut2) !important;}
+[data-testid="stChatInputSubmitButton"]{background:var(--ac) !important;border-radius:50% !important;
+  width:34px !important;height:34px !important;min-width:34px;display:flex;
+  align-items:center;justify-content:center;border:none !important;}
+/* Colour the icon through currentColor only. Its svg carries a transparent
+   background shape (a rect on 1.50, a path with fill="none" on 1.6x); forcing
+   fill on every child paints that shape and turns the arrow into a square. */
+[data-testid="stChatInputSubmitButton"]{color:#fff !important;}
+[data-testid="stChatInputSubmitButton"] svg{color:#fff !important;}
+[data-testid="stChatInputSubmitButton"]:disabled{background:var(--neu-bg) !important;
+  color:var(--mut2) !important;}
+[data-testid="stChatInputSubmitButton"]:disabled svg{color:var(--mut2) !important;}
+[data-testid="stChatInputSubmitButton"]:hover:not(:disabled){background:var(--ac-dk) !important;}
+
+/* "Clear conversation": a quiet text action, not a second primary button */
+.st-key-chat_clear button{border:none !important;background:transparent !important;
+  color:var(--ac) !important;font-size:.8rem !important;padding:.2rem .3rem !important;}
+.st-key-chat_clear button:hover{text-decoration:underline;background:transparent !important;}
+
 #MainMenu,footer,[data-testid="stToolbar"]{visibility:hidden;}
+/* ...except the button that brings a collapsed sidebar back. In current
+   Streamlit it lives INSIDE stToolbar, so hiding the toolbar hid it too and a
+   collapsed sidebar could not be reopened. visibility is inherited and a child
+   may override it, so it is shown again here, as a navy tab in the sidebar's
+   colours so it is easy to find on the grey page. The older test ids cover
+   Streamlit versions where the control sat outside the toolbar. */
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="collapsedControl"] button{
+  visibility:visible !important;background:var(--night) !important;
+  border:1px solid #1E2C45 !important;border-radius:6px !important;
+  box-shadow:inset 0 -2px 0 var(--ice);}
+/* The arrow is an icon-font glyph in a <span> on current Streamlit and an
+   <svg> on older ones; both default to dark ink, invisible on navy. */
+[data-testid="stExpandSidebarButton"],[data-testid="stExpandSidebarButton"] *,
+[data-testid="stSidebarCollapsedControl"] button *,
+[data-testid="collapsedControl"] button *{color:#fff !important;fill:#fff;}
+[data-testid="stExpandSidebarButton"]:hover,
+[data-testid="stSidebarCollapsedControl"] button:hover,
+[data-testid="collapsedControl"] button:hover{background:var(--navy) !important;}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -445,8 +689,11 @@ def header(title, sub):
     )
 
 
-def kpi(label, value, foot="", small=False):
-    return (f'<div class="kpi"><div class="kpi-l">{esc(label)}</div>'
+def kpi(label, value, foot="", small=False, tone=""):
+    """One KPI tile. `tone` (warn / risk / ok) colours the tile's top edge with
+    the same severity tones the chips use; leave it empty for a plain measure."""
+    cls = f"kpi k-{tone}" if tone else "kpi"
+    return (f'<div class="{cls}"><div class="kpi-l">{esc(label)}</div>'
             f'<div class="kpi-v{" sm" if small else ""}">{value}</div>'
             f'<div class="kpi-f">{foot}</div></div>')
 
@@ -465,13 +712,13 @@ def sparkline(df: pd.DataFrame):
         y=alt.Y("SENTIMENT_SCORE:Q", axis=None, scale=alt.Scale(domain=[-1.05, 1.05])),
     )
     zero = (alt.Chart(pd.DataFrame({"y": [0]}))
-            .mark_rule(color="#D8DCE1", strokeDash=[2, 2], size=1)
+            .mark_rule(color="#B8C0CB", strokeDash=[2, 2], size=1)
             .encode(y=alt.Y("y:Q", scale=alt.Scale(domain=[-1.05, 1.05]), axis=None)))
-    line = base.mark_line(color="#9AA4B0", size=1.2, opacity=.75)
+    line = base.mark_line(color="#7C8794", size=1.2, opacity=.75)
     pts = base.mark_point(size=52, filled=True, opacity=1).encode(
         color=alt.Color("SENTIMENT_SCORE:Q",
                         scale=alt.Scale(domain=[-1, 0, 1],
-                                        range=["#A32219", "#8B939E", "#1B6E45"]),
+                                        range=["#A32219", "#66707C", "#1B6E45"]),
                         legend=None),
         tooltip=[alt.Tooltip("OCCURRED_AT:T", title="When", format="%d %b %Y"),
                  alt.Tooltip("SENTIMENT_SCORE:Q", title="Sentiment", format=".2f"),
@@ -483,12 +730,12 @@ def sparkline(df: pd.DataFrame):
 def bar_chart(df, xcol, ycol, xtitle, height=None):
     c = (
         alt.Chart(df)
-        .mark_bar(color="#1B4D7A", height=13, cornerRadiusEnd=2)
+        .mark_bar(color="#0A6A94", height=13, cornerRadiusEnd=2)
         .encode(
             x=alt.X(f"{xcol}:Q", title=xtitle,
-                    axis=alt.Axis(grid=True, gridColor="#EDEFF2", tickCount=5,
-                                  labelColor="#8B939E", titleColor="#6B7480",
-                                  labelFontSize=10, titleFontSize=10, domain=False)),
+                    axis=alt.Axis(grid=True, gridColor="#DDE2E8", tickCount=5,
+                                  labelColor="#66707C", titleColor="#4F5965",
+                                  labelFontSize=11, titleFontSize=11, domain=False)),
             y=alt.Y(f"{ycol}:N", sort="-x", title=None,
                     axis=alt.Axis(labelColor="#3D454F", labelFontSize=11,
                                   labelLimit=200, domain=False, ticks=False)),
@@ -498,7 +745,9 @@ def bar_chart(df, xcol, ycol, xtitle, height=None):
     )
     if height:
         c = c.properties(height=height)
-    return c.configure_view(strokeWidth=0)
+    # Right padding so the last tick label is not clipped by the panel edge.
+    return c.properties(padding={"left": 4, "right": 16, "top": 6, "bottom": 4}) \
+            .configure_view(strokeWidth=0)
 
 
 # =============================================================================
@@ -529,13 +778,14 @@ def screen_cockpit():
               f"deterministic SQL, not a model estimate")
         + kpi("Actions suppressed", num(k.ACTIONS_SUPPRESSED),
               f"<b>{k.SUPPRESSION_RULES_FIRED}</b> rules fired · most often "
-              f"<b>{words(k.TOP_SUPPRESSION_REASON)}</b> ({num(k.TOP_SUPPRESSION_COUNT)})")
+              f"<b>{words(k.TOP_SUPPRESSION_REASON)}</b> ({num(k.TOP_SUPPRESSION_COUNT)})",
+              tone="risk")
         + kpi("Renewals at risk, 30 days", num(k.RENEWALS_AT_RISK_30D),
               f"<b>{inr(k.PREMIUM_AT_RISK_INR, True)}</b> premium on "
-              f"{num(k.POLICIES_AT_RISK_30D)} policies")
+              f"{num(k.POLICIES_AT_RISK_30D)} policies", tone="warn")
         + kpi("Arrears exposure", inr(k.ARREARS_EXPOSURE_INR, True),
               f"<b>{num(k.CUSTOMERS_IN_ARREARS)}</b> customers past due on a loan",
-              small=True)
+              small=True, tone="risk")
         + "</div>",
         unsafe_allow_html=True,
     )
@@ -1110,7 +1360,7 @@ def render_action_card(r, prior, cid):
         st.markdown(
             f'<div style="margin:-.2rem 0 .7rem">'
             f'{chip(words(prior.DECISION) + extra, tone_p)}'
-            f'<span style="font-size:.7rem;color:#6B7480;margin-left:6px">'
+            f'<span style="font-size:.7rem;color:#4F5965;margin-left:6px">'
             f"by {esc(prior.DECIDED_BY)} on {dstr(prior.DECIDED_AT)}</span></div>",
             unsafe_allow_html=True,
         )
@@ -1261,7 +1511,7 @@ def render_suppressed(cid):
             rules_html = "".join(
                 f'<div style="margin-top:.3rem">'
                 f'{chip(words(b.get("rule")), "risk")}'
-                f'<span style="font-size:.735rem;color:#6B7480;margin-left:6px">'
+                f'<span style="font-size:.735rem;color:#4F5965;margin-left:6px">'
                 f'{esc(b.get("observed"))}</span></div>'
                 for b in blocking
             )
@@ -1269,7 +1519,7 @@ def render_suppressed(cid):
             exempt_html = "".join(
                 f'<div style="margin-top:.3rem">'
                 f'{chip(words(e.get("rule")) + " — waived", "warn")}'
-                f'<span style="font-size:.735rem;color:#6B7480;margin-left:6px">'
+                f'<span style="font-size:.735rem;color:#4F5965;margin-left:6px">'
                 f'{esc(e.get("observed"))}</span></div>'
                 for e in exempt
             )
@@ -1320,31 +1570,121 @@ SUGGESTED = [
 ]
 
 
+COPILOT_NAME = "RM Copilot"
+# Message stamps are Indian time, written as a fixed offset rather than a named
+# zone so they need no tz database on the warehouse runtime.
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _copilot_avatar():
+    """The Coskilled mark as raw bytes, for st.chat_message(avatar=...). Bytes
+    work on every Streamlit version Snowflake serves; a data-URI string does
+    not. Falls back to Streamlit's own assistant avatar."""
+    try:
+        return base64.b64decode(TEAM_LOGO.split(",", 1)[1]) if TEAM_LOGO else "assistant"
+    except (ValueError, IndexError):
+        return "assistant"
+
+
+COPILOT_AVATAR = _copilot_avatar()
+
+# Your avatar: a person mark on a glacier disc, 96px WebP, inlined for the same
+# reason as TEAM_LOGO. Streamlit's default user avatar changes look between
+# versions, and on 1.4x/1.50 it is an icon that cannot be recoloured cleanly.
+USER_MARK = "data:image/webp;base64,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"
+try:
+    USER_AVATAR = base64.b64decode(USER_MARK.split(",", 1)[1])
+except (ValueError, IndexError):
+    USER_AVATAR = "user"
+
+
+def _stamp() -> str:
+    return datetime.now(IST).strftime("%H:%M")
+
+
+def _meta(m) -> str:
+    """The name-and-time line at the foot of a bubble. Its class also tells the
+    stylesheet whose bubble it is (msg-you / msg-bot): both avatars are images,
+    so the avatar can no longer say."""
+    mine = m["role"] == "user"
+    who = "You" if mine else COPILOT_NAME
+    at = m.get("at")
+    cls = "msg-meta msg-you" if mine else "msg-meta msg-bot"
+    return f'<div class="{cls}">{who}{" · " + esc(at) if at else ""}</div>'
+
+
+def _bubble(m):
+    """One message. The text is always the first element in the bubble -- the
+    answer is what matters, and the tests read it from that position."""
+    avatar = COPILOT_AVATAR if m["role"] == "assistant" else USER_AVATAR
+    with st.chat_message(m["role"], avatar=avatar):
+        st.markdown(m["text"])
+        if m.get("trace"):
+            render_trace(m["trace"])
+        st.markdown(_meta(m), unsafe_allow_html=True)
+
+
 def screen_ask():
     header(
         "Ask",
-        'Natural language over the book via <b>APP.RM_COPILOT</b> · '
-        'Cortex Analyst on the semantic view, Cortex Search on interactions and '
-        'product clauses, plus the next-best-action tool',
+        "Questions in plain English about one customer or the whole book. "
+        "Every answer shows the query and sources behind it.",
+    )
+
+    # -- who you are talking to ---------------------------------------------
+    tools = "".join(chip(t, "ac") for t in (
+        "Cortex Analyst", "Search · interactions", "Search · product terms",
+        "Next-best-action tool"))
+    avatar_img = (f'<img src="{TEAM_LOGO}" alt="{esc(COPILOT_NAME)}"/>'
+                  if TEAM_LOGO else "")
+    st.markdown(
+        f'<div class="cop">{avatar_img}<div>'
+        f'<div class="cop-n">{esc(COPILOT_NAME)}</div>'
+        '<div class="cop-s">Cortex Agent <code>APP.RM_COPILOT</code> · picks the '
+        'right tool for each question</div></div>'
+        f'<div class="cop-tools">{tools}</div></div>',
+        unsafe_allow_html=True,
     )
 
     if "chat" not in st.session_state:
         st.session_state.chat = []
 
-    if not st.session_state.chat:
-        st.markdown('<p class="sec">Try one of these</p>', unsafe_allow_html=True)
-        cols = st.columns(2, gap="small")
-        for i, s in enumerate(SUGGESTED):
-            if cols[i % 2].button(s, key=f"sug_{i}", use_container_width=True):
-                st.session_state.pending = s
-                st.rerun()
-        st.caption(
-            "Each question costs orchestration tokens, plus 0.067 credits when it "
-            "routes to Cortex Analyst. Nothing is sent until you ask."
+    talking = bool(st.session_state.chat)
+
+    # -- greeting: only before the first question ---------------------------
+    if not talking:
+        wel_img = (f'<img src="{TEAM_LOGO}" alt="{esc(COPILOT_NAME)}"/>'
+                   if TEAM_LOGO else "")
+        st.markdown(
+            f'<div class="wel">{wel_img}<div class="wel-b">'
+            "Ask about one customer or the whole book. For a named customer I "
+            "check the <b>next-best-action tool</b> before recommending anything, "
+            "and if a rule blocked an action I say which rule. Open "
+            "<b>Reasoning</b> under any answer to see the tools I called and the "
+            "SQL I ran.</div></div>",
+            unsafe_allow_html=True,
         )
 
-        st.markdown('<p class="sec">What each tool answers</p>', unsafe_allow_html=True)
-        cap_cols = st.columns(3, gap="small")
+    # -- suggestions: always on the page ------------------------------------
+    # They stay above the conversation after the first question, so an RM who
+    # scrolls up can still pick one as a follow-up. Laid out row by row rather
+    # than column by column, so the two chips in a row start on the same line.
+    st.markdown('<p class="sec">Try one of these</p>', unsafe_allow_html=True)
+    for row in range(0, len(SUGGESTED), 2):
+        cols = st.columns(2, gap="small")
+        for col, i in zip(cols, range(row, min(row + 2, len(SUGGESTED)))):
+            if col.button(SUGGESTED[i], key=f"sug_{i}", use_container_width=True):
+                st.session_state.pending = SUGGESTED[i]
+                st.rerun()
+    st.caption(
+        "Each question costs orchestration tokens, plus 0.067 credits when it "
+        "routes to Cortex Analyst. Nothing is sent until you ask."
+    )
+
+    # -- what each tool answers: only before the first question -------------
+    # One grid rather than three st.columns, so the three cards are one row of
+    # equal height whatever the length of their text.
+    if not talking:
         capabilities = [
             ("Portfolio questions", "Cortex Analyst",
              "How many, how much, which cohort, what trend -- routed to "
@@ -1356,39 +1696,42 @@ def screen_ask():
              "Retrieves the exact eligibility clause, cited as "
              "PRODUCT_CODE#CLAUSE_ID, that permits or blocks an action."),
         ]
-        for col, (title, sub, body) in zip(cap_cols, capabilities):
-            col.markdown(
+        st.markdown(
+            '<p class="sec">What each tool answers</p><div class="tools3">'
+            + "".join(
                 f'<div class="pan"><p class="pan-h">{title}</p>'
                 f'<p class="card-t" style="margin:0 0 .3rem;">{sub}</p>'
-                f'<p class="card-x" style="margin:0;">{body}</p></div>',
-                unsafe_allow_html=True,
-            )
+                f'<p class="card-x" style="margin:0;">{body}</p></div>'
+                for title, sub, body in capabilities)
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown('<div class="convo-rule"></div>', unsafe_allow_html=True)
 
     for m in st.session_state.chat:
-        with st.chat_message(m["role"]):
-            st.markdown(m["text"])
-            if m.get("trace"):
-                render_trace(m["trace"])
+        _bubble(m)
 
     typed = st.chat_input("Ask about a customer or the book")
     pending = st.session_state.pop("pending", None)
     prompt = typed or pending
 
     if prompt:
-        st.session_state.chat.append({"role": "user", "text": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        with st.chat_message("assistant"):
-            with st.spinner("Planning, calling tools, composing…"):
+        asked = {"role": "user", "text": prompt, "at": _stamp()}
+        st.session_state.chat.append(asked)
+        _bubble(asked)
+        with st.chat_message("assistant", avatar=COPILOT_AVATAR):
+            with st.spinner(f"{COPILOT_NAME} is planning, calling tools and composing…"):
                 text, trace = ask_agent(prompt)
             st.markdown(text)
             if trace:
                 render_trace(trace)
-        st.session_state.chat.append({"role": "assistant", "text": text, "trace": trace})
+        st.session_state.chat.append(
+            {"role": "assistant", "text": text, "trace": trace, "at": _stamp()})
         st.rerun()
 
     if st.session_state.chat:
-        if st.button("Clear conversation"):
+        if st.button("Clear conversation", key="chat_clear"):
             st.session_state.chat = []
             st.rerun()
 
@@ -1640,7 +1983,8 @@ def screen_impact():
               else inr(gap, True),
               ("forgone net contribution from <b>" + num(s_n) + "</b> blocked "
                "solicitations" if gap < 0 else
-               "targeting is <b>ahead</b> at this penalty"), small=True)
+               "targeting is <b>ahead</b> at this penalty"), small=True,
+              tone="risk" if gap < 0 else "ok")
         + kpi("Contact cost avoided", inr(s_cost, True),
               f"<b>{num(s_n)}</b> solicitations never made", small=True)
         + kpi("Breakeven penalty", inr(breakeven), 
@@ -1678,7 +2022,7 @@ def screen_impact():
     ]:
         rows.append(
             f"<tr><td>{esc(label)}<br/>"
-            f'<span style="font-size:.7rem;color:#8B939E">{esc(note)}</span></td>'
+            f'<span style="font-size:.7rem;color:#66707C">{esc(note)}</span></td>'
             f'<td class="n">{num(int(d.CONTACTS.sum()))}</td>'
             f'<td class="n">{inr(d.VALUE_AT_STAKE_INR.sum(), True)}</td>'
             f'<td class="n">{inr(d.REVENUE.sum(), True)}</td>'
@@ -1741,18 +2085,18 @@ def screen_impact():
         .mark_line(size=2)
         .encode(
             x=alt.X("Acceptance:Q", axis=alt.Axis(format="%", title="Acceptance rate",
-                                                  grid=True, gridColor="#EDEFF2",
-                                                  labelColor="#8B939E", titleColor="#6B7480",
-                                                  labelFontSize=10, titleFontSize=10)),
+                                                  grid=True, gridColor="#DDE2E8",
+                                                  labelColor="#66707C", titleColor="#4F5965",
+                                                  labelFontSize=11, titleFontSize=11)),
             y=alt.Y("Net contribution:Q",
                     axis=alt.Axis(title="Net contribution (₹)", grid=True,
-                                  gridColor="#EDEFF2", labelColor="#8B939E",
-                                  titleColor="#6B7480", labelFontSize=10, titleFontSize=10)),
+                                  gridColor="#DDE2E8", labelColor="#66707C",
+                                  titleColor="#4F5965", labelFontSize=11, titleFontSize=11)),
             color=alt.Color("Strategy:N",
                             scale=alt.Scale(domain=["Targeted book", "Contact everyone"],
-                                            range=["#1B4D7A", "#A32219"]),
+                                            range=["#0A6A94", "#A32219"]),
                             legend=alt.Legend(orient="top-left", title=None,
-                                              labelFontSize=11)),
+                                              labelFontSize=12, labelColor="#2F363F")),
             strokeDash=alt.StrokeDash("Strategy:N", legend=None),
             tooltip=[alt.Tooltip("Acceptance:Q", format=".1%"),
                      alt.Tooltip("Net contribution:Q", format=",.0f"),
@@ -1760,10 +2104,11 @@ def screen_impact():
         )
     )
     rule = (alt.Chart(pd.DataFrame({"a": [acc]})).mark_rule(
-        color="#8B939E", strokeDash=[3, 3]).encode(x="a:Q"))
+        color="#66707C", strokeDash=[3, 3]).encode(x="a:Q"))
 
     st.altair_chart(
-        (chart + rule).properties(height=260).configure_view(strokeWidth=0),
+        (chart + rule).properties(height=260, padding={"left": 4, "right": 18, "top": 6,
+                                                       "bottom": 4}).configure_view(strokeWidth=0),
         use_container_width=True,
     )
     st.caption(
@@ -1803,10 +2148,8 @@ SCREENS = {
 
 with st.sidebar:
     st.markdown(
-        '<div style="padding:0 0 .1rem"><div style="font-size:1.0rem;font-weight:680;'
-        'letter-spacing:-.014em;color:#15181C">C360 · Next Best Action</div>'
-        '<div style="font-size:.7rem;color:#6B7480;margin-top:.15rem;line-height:1.4">'
-        'Indian bank and insurer group<br/>5,000 customers · one spine</div></div><hr/>',
+        '<div style="padding:0 0 .1rem"><div class="sb-h">Indian bank and insurer group</div>'
+        '<div class="sb-s">5,000 customers · one spine</div></div><hr/>',
         unsafe_allow_html=True,
     )
 
@@ -1827,7 +2170,7 @@ with st.sidebar:
     st.markdown("<hr/>", unsafe_allow_html=True)
     kk = q("SELECT * FROM APP.V_PORTFOLIO_KPI").iloc[0]
     st.markdown(
-        '<div style="font-size:.7rem;color:#6B7480;line-height:1.75">'
+        '<div class="sb-stat">'
         f'Positions as of <b>{dstr(kk.AS_OF_DATE)}</b><br/>'
         f'<b>{num(kk.ACTIONS_PUBLISHED)}</b> actions published<br/>'
         f'<b>{num(kk.ACTIONS_SUPPRESSED)}</b> suppressed by rule<br/>'
@@ -1837,7 +2180,7 @@ with st.sidebar:
     )
     st.markdown("<hr/>", unsafe_allow_html=True)
     st.markdown(
-        '<div style="font-size:.665rem;color:#8B939E;line-height:1.6">'
+        '<div class="sb-note">'
         "Expected value and eligibility are deterministic SQL. A model writes the "
         "rationale and never a number. Synthetic data throughout."
         "</div>",
@@ -1846,13 +2189,30 @@ with st.sidebar:
 
     st.markdown("<hr/>", unsafe_allow_html=True)
     st.markdown(
-        '<div style="font-size:.665rem;color:#8B939E;line-height:1.7">'
-        'Created by <span style="color:#3D454F;font-weight:640">Akash Sur</span><br/>'
-        '<a href="https://sur-akash.github.io/" target="_blank" rel="noopener"'
-        ' style="color:#1B4D7A;text-decoration:none;'
-        'border-bottom:1px solid #C6D3E0">sur-akash.github.io</a>'
+        '<div class="sb-by">'
+        'Created by <span>Akash Sur</span> · Team Coskilled<br/>'
+        '<a href="https://sur-akash.github.io/" target="_blank" rel="noopener">'
+        'sur-akash.github.io</a>'
         "</div>",
         unsafe_allow_html=True,
     )
+
+# -- masthead -----------------------------------------------------------------
+# Drawn in the main column above every screen, so the product and the team are
+# on the page whichever screen is showing and whether or not the sidebar is
+# open. The band uses the logo's own navy gradient with an ice rule along its
+# foot, so the mark (TEAM_LOGO, see the top of the file) sits on its own colours.
+st.markdown(
+    '<div class="mast"><div>'
+    f'<div class="mast-n">{esc(APP_NAME)}</div>'
+    '<div class="mast-s">Customer 360 and next best action for an Indian bank '
+    'and insurer group</div></div>'
+    '<div class="mast-team">'
+    f'<div><div class="mast-tn">Team {esc(TEAM_NAME)}</div>'
+    '<div class="mast-ts">Akash Sur</div></div>'
+    + (f'<img src="{TEAM_LOGO}" alt="{esc(TEAM_NAME)} logo"/>' if TEAM_LOGO else "")
+    + "</div></div>",
+    unsafe_allow_html=True,
+)
 
 SCREENS[choice]()

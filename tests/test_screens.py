@@ -13,7 +13,7 @@ import re
 import pandas as pd
 import pytest
 
-from conftest import _bind, assert_clean, button, expander, goto, launch, page
+from conftest import APP, _bind, assert_clean, button, expander, goto, launch, page
 from contract import AGENT, SCREENS
 from fake_snowflake import (AGENT_ANSWER, AGENT_SQL, BLOCKED_CUSTOMER, CLEAN_CUSTOMER,
                             DEFAULT_CUSTOMER, VULNERABLE_CUSTOMER, FakeSession, SQLError,
@@ -53,6 +53,44 @@ class TestShell:
     def test_every_screen_renders_its_header(self, app, screen, title):
         goto(app, screen)
         assert f'<p class="h-title">{title}</p>' in page(app)
+
+    @pytest.mark.parametrize("screen", SCREENS)
+    def test_masthead_names_the_product_and_the_team_on_every_screen(self, app, screen):
+        goto(app, screen) if screen != SCREENS[0] else None
+        mast = [m.value for m in app.main.markdown if m.value.startswith('<div class="mast">')]
+        assert len(mast) == 1
+        assert '<div class="mast-n">Compass360</div>' in mast[0]
+        assert '<div class="mast-tn">Team Coskilled</div>' in mast[0]
+
+    def test_masthead_is_the_first_thing_on_the_page(self, app):
+        drawn = [m.value for m in app.main.markdown if "<style>" not in m.value]
+        assert drawn[0].startswith('<div class="mast">')
+
+    def test_logo_is_inlined_not_fetched(self, appns):
+        """Streamlit in Snowflake cannot load an external image, so the logo must
+        be a data URI -- never a URL or a file path."""
+        assert appns["TEAM_LOGO"].startswith("data:image/webp;base64,")
+        assert not re.search(r'<img[^>]+src="(?!\{TEAM_LOGO\})', APP.read_text(encoding="utf-8"))
+
+    def test_logo_decodes_to_a_small_square_image(self, appns):
+        import base64
+        import io
+        from PIL import Image
+        raw = base64.b64decode(appns["TEAM_LOGO"].split(",", 1)[1])
+        img = Image.open(io.BytesIO(raw))
+        assert img.format == "WEBP" and img.size[0] == img.size[1] >= 96
+        assert len(appns["TEAM_LOGO"]) < 12_000, "keep the inlined mark small; it ships in the app file"
+
+    def test_masthead_shows_the_logo_with_alt_text(self, app):
+        mast = next(m.value for m in app.main.markdown if m.value.startswith('<div class="mast">'))
+        assert re.search(r'<img src="data:image/webp;base64,[A-Za-z0-9+/=]+" alt="Coskilled logo"/>', mast)
+
+    def test_sidebar_text_is_styled_by_class_not_by_light_surface_inline_colours(self, app):
+        """The sidebar is navy. An inline colour written for a white surface
+        (dark ink) would vanish on it, so sidebar text takes its colour from CSS."""
+        side = "\n".join(m.value for m in app.sidebar.markdown)
+        assert not re.search(r"color:#", side), "inline colour in sidebar markup"
+        assert "Team Coskilled" in side
 
     def test_there_is_one_nav_button_per_screen(self, app):
         assert [b.label for b in app.sidebar.button] == SCREENS
@@ -95,7 +133,12 @@ class TestCockpit:
     def test_kpi_strip_matches_the_kpi_view(self, app, fake):
         k = fake.book["kpi"]
         html = page(app)
-        assert html.count('<div class="kpi">') == 5
+        assert len(re.findall(r'<div class="kpi[ "]', html)) == 5
+        # A tile's top edge is its severity: plain measures stay on the accent.
+        assert re.findall(r'<div class="kpi(?: k-(\w+))?"><div class="kpi-l">(.*?)</div>', html) == [
+            ("", "Customers"), ("", "Expected value, published book"),
+            ("risk", "Actions suppressed"), ("warn", "Renewals at risk, 30 days"),
+            ("risk", "Arrears exposure")]
         assert f"<b>{k['CUSTOMERS_WITH_ACTION']}</b> have at least one action" in html
         assert '<div class="kpi-v">₹1.72 L</div>' in html              # 1,72,450.50
         assert f"across <b>{k['ACTIONS_PUBLISHED']}</b> actions" in html
@@ -431,7 +474,54 @@ class TestAsk:
         assert [m.name for m in ask_screen.chat_message] == ["user", "assistant"]
         assert ask_screen.chat_message[0].markdown[0].value == QUESTION
         assert ask_screen.chat_message[1].markdown[0].value == AGENT_ANSWER
-        assert not [b for b in ask_screen.button if (b.key or "").startswith("sug_")]
+
+    def test_idle_screen_introduces_the_copilot_and_its_tools(self, ask_screen):
+        html = page(ask_screen)
+        assert '<div class="cop-n">RM Copilot</div>' in html
+        assert "<code>APP.RM_COPILOT</code>" in html
+        for tool in ("Cortex Analyst", "Search · interactions", "Search · product terms",
+                     "Next-best-action tool"):
+            assert f">{tool}</span>" in html
+        assert '<div class="wel">' in html and len(ask_screen.chat_message) == 0
+
+    def test_each_bubble_says_whose_it_is_and_when(self, ask_screen):
+        ask(ask_screen, QUESTION)
+        you, bot = ask_screen.chat_message
+        assert re.fullmatch(r'<div class="msg-meta msg-you">You · \d\d:\d\d</div>',
+                            you.markdown[1].value)
+        assert re.fullmatch(r'<div class="msg-meta msg-bot">RM Copilot · \d\d:\d\d</div>',
+                            bot.markdown[-1].value)
+
+    def test_suggestions_stay_on_the_page_after_the_first_question(self, ask_screen, appns):
+        ask(ask_screen, QUESTION)
+        assert [b.label for b in ask_screen.button if (b.key or "").startswith("sug_")] \
+            == appns["SUGGESTED"]
+        html = page(ask_screen)
+        assert "Try one of these" in html
+        assert '<div class="wel">' not in html and "What each tool answers" not in html
+
+    def test_a_suggestion_can_be_asked_as_a_follow_up(self, ask_screen, fake, appns):
+        ask(ask_screen, QUESTION)
+        ask_screen.button(key="sug_2").click().run()
+        assert_clean(ask_screen)
+        _, body = fake.agent_calls[1]
+        assert [m["role"] for m in body["messages"]] == ["user", "assistant", "user"]
+        assert body["messages"][-1]["content"][0]["text"] == appns["SUGGESTED"][2]
+        assert len(ask_screen.chat_message) == 4
+
+    def test_tool_cards_are_one_grid_row(self, ask_screen):
+        grid = next(m.value for m in ask_screen.markdown if '<div class="tools3">' in m.value)
+        assert grid.count('<div class="pan">') == 3
+
+    def test_the_greeting_is_not_sent_to_the_agent(self, ask_screen, fake):
+        ask(ask_screen, QUESTION)
+        sent = json.dumps(fake.agent_calls[0][1])
+        assert "next-best-action tool" not in sent and "msg-meta" not in sent
+
+    def test_both_avatars_are_inlined_images(self, appns):
+        for name in ("TEAM_LOGO", "USER_MARK"):
+            assert appns[name].startswith("data:image/webp;base64,")
+        assert isinstance(appns["COPILOT_AVATAR"], bytes) and isinstance(appns["USER_AVATAR"], bytes)
 
     def test_reasoning_trace_exposes_plan_tool_sql_result_followups_and_tokens(self, ask_screen):
         ask(ask_screen, QUESTION)
@@ -592,6 +682,7 @@ class TestImpact:
     def test_compliance_is_reported_as_a_cost_when_it_is_one(self, impact, fake):
         m = model(fake.book)
         assert m["e_net"] > m["t_net"]                 # the fixture, like the real book
+        assert '<div class="kpi k-risk"><div class="kpi-l">What compliance costs</div>' in page(impact)
         assert f"forgone net contribution from <b>{m['s_n']}</b> blocked solicitations" in page(impact)
         assert "uplift" not in page(impact).lower()
 
@@ -628,6 +719,7 @@ class TestImpact:
         assert m["t_net"] > m["e_net"]
         html = page(impact)
         assert "targeting is <b>ahead</b> at this penalty" in html
+        assert '<div class="kpi k-ok"><div class="kpi-l">What compliance costs</div>' in html
         assert f"less {appns['inr'](above * m['s_n'], True)} in penalties" in html
         assert kpis(impact)["Breakeven penalty"] == appns["inr"](m0["breakeven"])   # unchanged
 

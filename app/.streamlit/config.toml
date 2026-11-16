@@ -1,4 +1,4 @@
-# Streamlit theme for C360 · Next Best Action
+# Streamlit theme for Compass360 · Next Best Action
 #
 # This file exists for one reason: primaryColor.
 #
@@ -23,7 +23,7 @@
 
 [theme]
 base                     = "light"
-primaryColor             = "#1B4D7A"
+primaryColor             = "#0A6A94"
 textColor                = "#15181C"
 backgroundColor          = "#FFFFFF"
-secondaryBackgroundColor = "#F1F3F6"
+secondaryBackgroundColor = "#EEF2F6"
