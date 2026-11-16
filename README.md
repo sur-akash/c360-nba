@@ -132,8 +132,10 @@ Three things worth knowing before spending anything:
 
 - **The full rebuild (`run.sh`) is scripted and validated, not executed live.**
   When it was ready, about 18.9 trial credits remained against an estimated
-  22–30 for the full sequence. The rebuild path is provable by inspection, not
-  by a timed log.
+  22–30 for the full sequence. The app has since been moved to a second account
+  (AWS Tokyo) by exporting and loading the data, with matching KPIs; that is a
+  migration, not a rebuild. The rebuild path is provable by inspection, not by a
+  timed log.
 - **One rationale row imputed distress it shouldn't have.** `sql/15_nba_publish.sql`
   (search `1887`) documents a rationale that framed a clean repayment history as
   "cash flow pressure". The action was correctly eligible; the sentence was wrong.
