@@ -286,7 +286,6 @@ app/                          Streamlit in Snowflake source
 data/audio/                   three committed call-recording fixtures (.m4a)
 docs/DATA_SEGMENTS.md         planted segments + identifying predicates
 docs/DEMO_SCRIPT.md           the timed walkthrough
-docs/VIDEO_SCRIPT.md          the submission recording
 evals/                        both eval suites and REPORT.md
 tools/reset_demo.sh           clear demo state between judging sessions
 run.sh                        full rebuild, both non-SQL stage-copy steps included
