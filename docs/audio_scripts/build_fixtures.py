@@ -26,8 +26,6 @@ Reads  docs/audio_scripts/*.txt   lines of  SPEAKER|text
 Writes data/audio/<name>.m4a
 """
 
-import os
-import re
 import subprocess
 import sys
 import wave

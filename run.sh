@@ -18,7 +18,7 @@
 # because RAW.AUDIO_STAGE lives inside C360_NBA and does not survive a drop.
 #
 # COST WARNING. Regenerating and re-enriching the interaction corpus alone
-# measured 13.56 credits the first time (README "What each milestone
+# measured 13.56 credits the first time (docs/COST.md, "What each milestone
 # actually cost", M3). Warehouse compute for the full sequence adds more.
 # Run this once, keep the log this script writes, and do not re-run it
 # before a demo -- the log is the submission artifact, not a rehearsal.
