@@ -4,3 +4,7 @@ __pycache__/
 .DS_Store
 .pytest_cache/
 .venv/
+
+# Streamlit secrets (portfolio/ Neon URL) -- never commit
+.streamlit/secrets.toml
+portfolio/.streamlit/secrets.toml
