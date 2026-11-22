@@ -3,3 +3,4 @@ pandas<3
 altair>=5
 sqlalchemy>=2.0
 psycopg[binary]>=3.2
+requests>=2.31

@@ -12,9 +12,11 @@ It does five things, in order, and stops at the first failure:
   1. creates the helper functions and the 48 tables     (00_helpers.sql, 01_tables.sql)
   2. loads all 1,580,976 rows from the export            (load_extract.py)
   3. creates the ported views and materialized views     (02_views.sql)
+     and the four tools the live Ask screen calls          (03_agent.sql)
   4. checks the portfolio KPI row against the numbers Snowflake produced
   5. creates a least-privilege login for the app, c360_app: it can read
-     everything and insert into APP.ACTION_FEEDBACK, and nothing else -- so the
+     everything, insert into APP.ACTION_FEEDBACK, call the agent tools and count
+     today's live questions in APP.LLM_USAGE, and nothing else -- so the
      public app never holds the owner's password. Its connection string is
      printed at the end; that is the one that goes into Streamlit secrets.
 
@@ -79,6 +81,7 @@ def main():
     with psycopg.connect(args.dsn) as conn:
         print("3/5 views")
         run_sql_file(conn, "02_views.sql")
+        run_sql_file(conn, "03_agent.sql")
         conn.autocommit = True
         conn.execute("analyze")
 
@@ -98,7 +101,8 @@ def main():
             conn.execute(f"grant select on all tables in schema {s} to c360_app")
         conn.execute("grant insert on app.action_feedback to c360_app")
         conn.execute("grant usage on all sequences in schema app to c360_app")
-        conn.execute("grant execute on all functions in schema public, curated to c360_app")
+        conn.execute("grant execute on all functions in schema public, curated, app to c360_app")
+        conn.execute("grant select, insert, update on app.llm_usage to c360_app")
 
     print("\nDone. Paste this into Streamlit Community Cloud -> app -> Settings -> Secrets:\n")
     print("[connections.neon]")

@@ -75,6 +75,8 @@ import pandas as pd
 import streamlit as st
 import sqlalchemy as sa
 
+import live_agent
+
 AGENT = "C360_NBA.APP.RM_COPILOT"
 DEFAULT_CUSTOMER = 2397
 
@@ -1675,6 +1677,8 @@ def _meta(m) -> str:
     so the avatar can no longer say."""
     mine = m["role"] == "user"
     who = "You" if mine else COPILOT_NAME
+    if not mine and m.get("via"):
+        who += f" · {esc(m['via'])}"
     at = m.get("at")
     cls = "msg-meta msg-you" if mine else "msg-meta msg-bot"
     return f'<div class="{cls}">{who}{" · " + esc(at) if at else ""}</div>'
@@ -1691,101 +1695,202 @@ def _bubble(m):
         st.markdown(_meta(m), unsafe_allow_html=True)
 
 
+# -- live mode ------------------------------------------------------------------
+# Gemini (free tier) driving the same four tools and the same instructions as the
+# Cortex Agent -- see live_agent.py. Two caps keep a public page from spending the
+# whole free quota: questions per browser session, and questions per day across
+# everyone, counted in app.llm_usage (which stores a number per day and never the
+# question).
+LIVE_PER_SESSION = 6
+
+
+def _gemini_cfg():
+    try:
+        g = st.secrets["gemini"]
+        return {"api_key": g["api_key"], "model": g.get("model"),
+                "daily_limit": int(g.get("daily_limit", 150))}
+    except (KeyError, FileNotFoundError, AttributeError):
+        return None
+
+
+@st.cache_resource(show_spinner=False)
+def _gemini_model(api_key, preferred):
+    return live_agent.pick_model(api_key, preferred)
+
+
+def _count_today(limit):
+    """Reserve one question in today's quota. Returns True if it fits."""
+    with engine.begin() as c:
+        n = c.execute(sa.text("""
+            insert into app.llm_usage (day, questions) values (current_date, 1)
+            on conflict (day) do update set questions = app.llm_usage.questions + 1
+            returning questions""")).scalar()
+    return n <= limit
+
+
+def _ask_live(cfg, prompt):
+    asked = st.session_state.get("live_asked", 0)
+    if asked >= LIVE_PER_SESSION:
+        return (f"This demo allows {LIVE_PER_SESSION} live questions per visit, to keep the free "
+                "quota available for other visitors. Reload the page to start a new visit, or "
+                "switch to **Recorded** to read the Cortex Agent's own answers."), None, None
+    try:
+        if not _count_today(cfg["daily_limit"]):
+            return ("Today's live questions are used up -- the demo runs on a free quota. Switch to "
+                    "**Recorded** to read the Cortex Agent's own answers, or come back tomorrow."), None, None
+    except Exception as e:  # noqa: BLE001
+        return f"Could not check today's quota: {type(e).__name__}.", None, None
+    st.session_state.live_asked = asked + 1
+    try:
+        model = _gemini_model(cfg["api_key"], cfg["model"])
+        history = [(m["role"], m["text"]) for m in st.session_state.chat_live[:-1]]
+        text, trace = live_agent.run_agent(engine, cfg["api_key"], model, prompt, history)
+        return text, trace, model
+    except live_agent.GeminiError as e:
+        if e.status == 429:
+            return ("Gemini's free-tier rate limit was reached. Wait a minute and ask again, or "
+                    "switch to **Recorded**."), None, None
+        return f"The Gemini call failed ({e.status}): {e}", None, None
+    except Exception as e:  # noqa: BLE001 - surfaced, not raised
+        return f"The live answer failed: {type(e).__name__}: {str(e)[:300]}", None, None
+
+
+def _capabilities():
+    capabilities = [
+        ("Portfolio questions", "Cortex Analyst",
+         "How many, how much, which cohort, what trend -- routed to "
+         "GOLD.SV_CUSTOMER_360 through SEMANTIC_VIEW(), never around it."),
+        ("What a customer said", "Cortex Search · interactions",
+         "Finds the actual call, email or chat -- filterable by customer, "
+         "channel, intent and sentiment, not a summary written after the fact."),
+        ("Is this allowed", "Cortex Search · product terms",
+         "Retrieves the exact eligibility clause, cited as "
+         "PRODUCT_CODE#CLAUSE_ID, that permits or blocks an action."),
+    ]
+    st.markdown(
+        '<p class="sec">What each tool answers</p><div class="tools3">'
+        + "".join(
+            f'<div class="pan"><p class="pan-h">{title}</p>'
+            f'<p class="card-t" style="margin:0 0 .3rem;">{sub}</p>'
+            f'<p class="card-x" style="margin:0;">{body}</p></div>'
+            for title, sub, body in capabilities)
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def screen_ask():
     header(
         "Ask",
         "Questions in plain English about one customer or the whole book. "
-        "Every answer shows the tools and SQL behind it.",
+        "Every answer shows the tools and data behind it.",
     )
+    cfg = _gemini_cfg()
+    modes = (["Live · Gemini", "Recorded · Cortex Agent"] if cfg
+             else ["Recorded · Cortex Agent"])
+    if "ask_mode" not in st.session_state or st.session_state.ask_mode not in modes:
+        st.session_state.ask_mode = modes[0]
+    for k in ("chat", "chat_live"):
+        st.session_state.setdefault(k, [])
 
-    # -- who you are talking to ---------------------------------------------
     tools = "".join(chip(t, "ac") for t in (
-        "Cortex Analyst", "Search · interactions", "Search · product terms",
+        "Portfolio analytics", "Search · interactions", "Search · product terms",
         "Next-best-action tool"))
     avatar_img = (f'<img src="{TEAM_LOGO}" alt="{esc(COPILOT_NAME)}"/>'
                   if TEAM_LOGO else "")
     st.markdown(
         f'<div class="cop">{avatar_img}<div>'
         f'<div class="cop-n">{esc(COPILOT_NAME)}</div>'
-        '<div class="cop-s">Snowflake Cortex Agent <code>APP.RM_COPILOT</code> · '
-        'recorded runs, replayed</div></div>'
+        '<div class="cop-s">The <code>APP.RM_COPILOT</code> instructions and tools · '
+        'live on Gemini, or replayed from the Snowflake Cortex Agent</div></div>'
         f'<div class="cop-tools">{tools}</div></div>',
         unsafe_allow_html=True,
     )
 
-    if "chat" not in st.session_state:
-        st.session_state.chat = []
-    talking = bool(st.session_state.chat)
+    mode = st.radio("Mode", modes, key="ask_mode", horizontal=True,
+                    label_visibility="collapsed")
+    live = mode.startswith("Live")
 
-    if not talking:
-        wel_img = (f'<img src="{TEAM_LOGO}" alt="{esc(COPILOT_NAME)}"/>'
-                   if TEAM_LOGO else "")
+    if live:
         st.markdown(
-            f'<div class="wel">{wel_img}<div class="wel-b">'
-            "This public build replays <b>real answers</b> from the Cortex Agent, "
-            "recorded against the live Snowflake deployment -- the agent itself "
-            "runs only inside Snowflake. Pick a question below. Open "
-            "<b>Reasoning</b> under any answer to see the plan, the tools it "
-            "called and the SQL Cortex Analyst generated. For a named customer it "
-            "calls the <b>next-best-action tool</b> before recommending anything, "
-            "and if a rule blocked an action it says which rule.</div></div>",
+            '<div class="wel"><div class="wel-b">'
+            "<b>Live.</b> A Gemini model (Google's free tier) answers with the Cortex "
+            "Agent's own instructions and the same four tools, rebuilt on Postgres. "
+            "Recommendations still come only from the <b>next-best-action tool</b>, so "
+            "the model can explain an action but cannot invent one. Ask your own "
+            "question or pick one below. Open <b>Reasoning</b> under an answer to see "
+            "the tool calls and the data they returned."
+            f"<br/><br/>Up to {LIVE_PER_SESSION} questions per visit. Questions are sent "
+            "to Google, which may use free-tier prompts to improve its products -- all "
+            "data here is synthetic, so don't type anything personal.</div></div>",
             unsafe_allow_html=True,
         )
-
-    # -- the recorded questions, by persona -----------------------------------
-    for g in RUN_GROUPS:
-        runs = [r for r in AGENT_RUNS if r["group"] == g]
-        st.markdown(f'<p class="sec">{esc(g)}</p>', unsafe_allow_html=True)
-        st.caption(RUN_GROUP_NOTE[g])
-        for row in range(0, len(runs), 2):
+        st.markdown('<p class="sec">Try one of these</p>', unsafe_allow_html=True)
+        ideas = [r for r in AGENT_RUNS if r["group"] != "Guardrail tests"][:6] + \
+                [r for r in AGENT_RUNS if r["id"] in ("A1", "A4")]
+        for row in range(0, len(ideas), 2):
             cols = st.columns(2, gap="small")
-            for col, r in zip(cols, runs[row:row + 2]):
-                if col.button(r["question"], key=f"run_{r['id']}", use_container_width=True):
-                    st.session_state.pending = r["id"]
+            for col, r in zip(cols, ideas[row:row + 2]):
+                if col.button(r["question"], key=f"live_{r['id']}", use_container_width=True):
+                    st.session_state.live_pending = r["question"]
                     st.rerun()
-
-    if not talking:
-        capabilities = [
-            ("Portfolio questions", "Cortex Analyst",
-             "How many, how much, which cohort, what trend -- routed to "
-             "GOLD.SV_CUSTOMER_360 through SEMANTIC_VIEW(), never around it."),
-            ("What a customer said", "Cortex Search · interactions",
-             "Finds the actual call, email or chat -- filterable by customer, "
-             "channel, intent and sentiment, not a summary written after the fact."),
-            ("Is this allowed", "Cortex Search · product terms",
-             "Retrieves the exact eligibility clause, cited as "
-             "PRODUCT_CODE#CLAUSE_ID, that permits or blocks an action."),
-        ]
+        chat = st.session_state.chat_live
+    else:
         st.markdown(
-            '<p class="sec">What each tool answers</p><div class="tools3">'
-            + "".join(
-                f'<div class="pan"><p class="pan-h">{title}</p>'
-                f'<p class="card-t" style="margin:0 0 .3rem;">{sub}</p>'
-                f'<p class="card-x" style="margin:0;">{body}</p></div>'
-                for title, sub, body in capabilities)
-            + "</div>",
+            '<div class="wel"><div class="wel-b">'
+            "<b>Recorded.</b> Real answers from the Snowflake Cortex Agent, captured "
+            "against the live deployment and replayed unedited. Open <b>Reasoning</b> "
+            "under any answer to see the plan, the tools it called and the SQL Cortex "
+            "Analyst generated.</div></div>",
             unsafe_allow_html=True,
         )
+        for g in RUN_GROUPS:
+            runs = [r for r in AGENT_RUNS if r["group"] == g]
+            st.markdown(f'<p class="sec">{esc(g)}</p>', unsafe_allow_html=True)
+            st.caption(RUN_GROUP_NOTE[g])
+            for row in range(0, len(runs), 2):
+                cols = st.columns(2, gap="small")
+                for col, r in zip(cols, runs[row:row + 2]):
+                    if col.button(r["question"], key=f"run_{r['id']}", use_container_width=True):
+                        st.session_state.pending = r["id"]
+                        st.rerun()
+        chat = st.session_state.chat
+
+    if not chat:
+        _capabilities()
     else:
         st.markdown('<div class="convo-rule"></div>', unsafe_allow_html=True)
 
-    for m in st.session_state.chat:
+    for m in chat:
         _bubble(m)
 
-    rid = st.session_state.pop("pending", None)
-    run = next((r for r in AGENT_RUNS if r["id"] == rid), None)
-    if run:
-        st.session_state.chat.append(
-            {"role": "user", "text": run["question"], "at": _stamp()})
-        st.session_state.chat.append(
-            {"role": "assistant", "text": run["answer"] or "_No text returned._",
-             "trace": run["trace"], "at": _stamp()})
-        st.rerun()
-
-    if st.session_state.chat:
-        if st.button("Clear conversation", key="chat_clear"):
-            st.session_state.chat = []
+    if live:
+        typed = st.chat_input("Ask about a customer or the book",
+                              max_chars=live_agent.MAX_QUESTION_CHARS)
+        prompt = typed or st.session_state.pop("live_pending", None)
+        if prompt:
+            asked = {"role": "user", "text": prompt, "at": _stamp()}
+            chat.append(asked)
+            _bubble(asked)
+            with st.chat_message("assistant", avatar=COPILOT_AVATAR):
+                with st.spinner(f"{COPILOT_NAME} is calling tools and composing…"):
+                    text, trace, model = _ask_live(cfg, prompt)
+            chat.append({"role": "assistant", "text": text, "trace": trace, "at": _stamp(),
+                         "via": f"{model} · live" if model else "live"})
             st.rerun()
+    else:
+        rid = st.session_state.pop("pending", None)
+        run = next((r for r in AGENT_RUNS if r["id"] == rid), None)
+        if run:
+            chat.append({"role": "user", "text": run["question"], "at": _stamp()})
+            chat.append({"role": "assistant", "text": run["answer"] or "_No text returned._",
+                         "trace": run["trace"], "at": _stamp(),
+                         "via": "Cortex Agent · recorded"})
+            st.rerun()
+
+    if chat and st.button("Clear conversation", key="chat_clear"):
+        chat.clear()
+        st.rerun()
 
 
 def result_frame(rs):

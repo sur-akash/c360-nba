@@ -23,6 +23,8 @@ counts of both materialized views (5,000 and 108,144). All match.
 ```
 portfolio/
   streamlit_app.py          the app (SQLAlchemy + psycopg in place of Snowpark)
+  live_agent.py             the live Ask mode: Gemini driving the four ported tools
+  data/agent_instructions.json  the RM_COPILOT instructions and tool descriptions
   requirements.txt          pinned to the Streamlit version it was tested on
   data/agent_runs.json      the 13 recorded agent runs the Ask screen replays
   db/
@@ -31,6 +33,8 @@ portfolio/
     01_tables.sql           the 48 tables, translated from Snowflake GET_DDL
     load_extract.py         loads c360_export.json.gz
     02_views.sql            the ported views
+    03_agent.sql            the agent tools: next-best-actions, two full-text searches
+    apply_agent.py          adds 03_agent.sql to a database built before it existed
     validate.py             the check against Snowflake's numbers
     build_agent_runs.py     rebuilds data/agent_runs.json from evals/agent_runs/
 ```
@@ -70,6 +74,41 @@ url = "THE_c360_app_CONNECTION_STRING_FROM_STEP_2"
 
 Pick a custom subdomain (for example `compass360`) and deploy. The theme comes
 from `.streamlit/config.toml` at the repository root.
+
+## Live Ask mode (optional, Gemini free tier)
+
+The Ask screen replays the recorded Cortex Agent runs. With a Gemini key it also
+offers **Live**: a Gemini model gets the Cortex Agent's own instructions and the
+same four tools, ported to Postgres:
+
+| Cortex Agent tool | Live equivalent |
+|---|---|
+| Cortex Analyst over `GOLD.SV_CUSTOMER_360` | nine governed, parameterised queries (the model picks one; it never writes SQL) |
+| Cortex Search · interactions | `app.search_interactions` (Postgres full-text search) |
+| Cortex Search · product terms | `app.search_product_terms` |
+| `APP.GET_NEXT_BEST_ACTIONS` | `app.get_next_best_actions`, a line-for-line port, checked against the recorded Snowflake outputs |
+
+Recommendations still come only from the next-best-action tool, so the model can
+explain an action but not invent one.
+
+1. Get a key at [aistudio.google.com](https://aistudio.google.com/apikey). Don't
+   commit it or paste it anywhere except Streamlit secrets.
+2. For a database built before this mode existed, run once with the **owner**
+   connection string: `python3 portfolio/db/apply_agent.py --dsn "OWNER_DSN"`.
+3. Add to the app's secrets and reboot:
+
+```toml
+[gemini]
+api_key = "YOUR_KEY"
+# model = "gemini-2.5-flash"   # optional; default is the newest stable Flash
+# daily_limit = 150            # optional; live questions per day, all visitors
+```
+
+Each visit gets 6 live questions, and `app.llm_usage` keeps a count per day (no
+question text). When either cap or Google's rate limit is hit, the screen says
+so and points to the recorded runs. Free-tier prompts may be used by Google to
+improve its products; the screen says this, and all the data is synthetic.
+Without the `[gemini]` secret, the Ask screen shows only the recorded runs.
 
 ## Things to know
 
