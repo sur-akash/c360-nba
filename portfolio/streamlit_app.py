@@ -1713,9 +1713,9 @@ def _gemini_cfg():
         return None
 
 
-@st.cache_resource(show_spinner=False)
-def _gemini_model(api_key, preferred):
-    return live_agent.pick_model(api_key, preferred)
+@st.cache_resource(show_spinner=False, ttl=6 * 3600)
+def _gemini_models(api_key, preferred):
+    return live_agent.pick_models(api_key, preferred)
 
 
 def _count_today(limit):
@@ -1726,6 +1726,16 @@ def _count_today(limit):
             on conflict (day) do update set questions = app.llm_usage.questions + 1
             returning questions""")).scalar()
     return n <= limit
+
+
+def _uncount_today():
+    """Give back a question that failed on Google's side."""
+    try:
+        with engine.begin() as c:
+            c.execute(sa.text("update app.llm_usage set questions = greatest(questions - 1, 0) "
+                              "where day = current_date"))
+    except Exception:  # noqa: BLE001 - best effort
+        pass
 
 
 def _ask_live(cfg, prompt):
@@ -1741,17 +1751,29 @@ def _ask_live(cfg, prompt):
     except Exception as e:  # noqa: BLE001
         return f"Could not check today's quota: {type(e).__name__}.", None, None
     st.session_state.live_asked = asked + 1
+
+    def refund():
+        st.session_state.live_asked = max(st.session_state.get("live_asked", 1) - 1, 0)
+        _uncount_today()
+
+    # Earlier failed turns (the question and its error) are left out of the history.
+    past = st.session_state.chat_live[:-1]
+    history = [(m["role"], m["text"]) for i, m in enumerate(past)
+               if not m.get("failed")
+               and not (m["role"] == "user" and i + 1 < len(past) and past[i + 1].get("failed"))]
     try:
-        model = _gemini_model(cfg["api_key"], cfg["model"])
-        history = [(m["role"], m["text"]) for m in st.session_state.chat_live[:-1]]
-        text, trace = live_agent.run_agent(engine, cfg["api_key"], model, prompt, history)
-        return text, trace, model
+        models = _gemini_models(cfg["api_key"], cfg["model"])
+        return live_agent.run_agent_any(engine, cfg["api_key"], models, prompt, history)
     except live_agent.GeminiError as e:
-        if e.status == 429:
-            return ("Gemini's free-tier rate limit was reached. Wait a minute and ask again, or "
-                    "switch to **Recorded**."), None, None
+        refund()
+        if e.status in (429, 500, 503, 504):
+            return ("Google's free Gemini models are busy right now (every model this demo can "
+                    "use returned *" + ("rate limited" if e.status == 429 else "high demand") +
+                    "*). This didn't count toward your questions -- try again in a minute, or "
+                    "switch to **Recorded** to read the Cortex Agent's own answers."), None, None
         return f"The Gemini call failed ({e.status}): {e}", None, None
     except Exception as e:  # noqa: BLE001 - surfaced, not raised
+        refund()
         return f"The live answer failed: {type(e).__name__}: {str(e)[:300]}", None, None
 
 
@@ -1876,7 +1898,7 @@ def screen_ask():
                 with st.spinner(f"{COPILOT_NAME} is calling tools and composing…"):
                     text, trace, model = _ask_live(cfg, prompt)
             chat.append({"role": "assistant", "text": text, "trace": trace, "at": _stamp(),
-                         "via": f"{model} · live" if model else "live"})
+                         "via": f"{model} · live" if model else "live", "failed": not model})
             st.rerun()
     else:
         rid = st.session_state.pop("pending", None)

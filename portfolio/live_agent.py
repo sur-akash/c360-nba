@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -283,10 +284,46 @@ class GeminiError(Exception):
         self.status = status
 
 
-def _post(api_key, model, body, timeout=60):
-    r = requests.post(f"{API}/models/{model}:generateContent",
-                      headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-                      data=json.dumps(body), timeout=timeout)
+# Statuses that say "this model, right now" rather than "this request is wrong":
+# overloaded (503), internal (500/504), free-tier quota for this model (429), or a
+# model name that has been retired (404). On these the question is retried on the
+# next model in the list.
+RETRYABLE = {404, 429, 500, 503, 504}
+
+
+def _thinking(model):
+    """Keep thinking short: the tools do the work, and a busy free tier is slow
+    enough already. Gemini 3 takes a level, 2.5 a token budget."""
+    if model.startswith("gemini-3"):
+        return {"thinkingLevel": "low"}
+    if model.startswith("gemini-2.5-flash") and "lite" not in model:
+        return {"thinkingBudget": 512}
+    return None
+
+
+def _post(api_key, model, body, timeout=(5, 25)):
+    body = dict(body)
+    cfg = dict(body.get("generationConfig") or {})
+    think = _thinking(model)
+    if think:
+        cfg["thinkingConfig"] = think
+    body["generationConfig"] = cfg
+    for attempt in range(3):
+        try:
+            r = requests.post(f"{API}/models/{model}:generateContent",
+                              headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+                              data=json.dumps(body), timeout=timeout)
+        except requests.Timeout:
+            raise GeminiError(504, f"{model} did not answer within {timeout[1]} seconds.") from None
+        except requests.ConnectionError:
+            raise GeminiError(503, f"Could not reach Gemini for {model}.") from None
+        if r.status_code == 400 and "thinking" in r.text.lower() and "thinkingConfig" in cfg:
+            cfg.pop("thinkingConfig")  # a model that rejects the setting: send without it
+            continue
+        if r.status_code in (500, 503) and attempt == 0:
+            time.sleep(1.5)  # brief spikes often clear within a second or two
+            continue
+        break
     if r.status_code != 200:
         try:
             msg = r.json().get("error", {}).get("message", r.text)
@@ -296,12 +333,33 @@ def _post(api_key, model, body, timeout=60):
     return r.json()
 
 
+def pick_models(api_key, preferred=None, limit=4):
+    """The models to try, in order: the configured one (if any), then the stable
+    Flash models newest first, then the Flash-Lite models newest first. Model
+    names change often; resolving at runtime means a retired name does not take
+    the screen down, and a busy model falls through to a quieter one."""
+    try:
+        listed = _list_flash(api_key)
+    except GeminiError:
+        if preferred:
+            return [preferred]
+        raise
+    # Alternate Flash and Flash-Lite: the newest Flash is the best at tool use
+    # but also the busiest on the free tier; Flash-Lite is quieter and quick.
+    flash = [m for m in listed if not m.endswith("-lite")]
+    lite = [m for m in listed if m.endswith("-lite")]
+    mixed = [m for pair in zip(flash, lite) for m in pair]
+    mixed += flash[len(lite):] + lite[len(flash):]
+    out = [preferred] if preferred else []
+    out += [m for m in mixed if m not in out]
+    return out[:limit]
+
+
 def pick_model(api_key, preferred=None):
-    """Use the configured model, or else the newest stable Flash model the key
-    can call. Model names change often; resolving at runtime means a retired
-    name does not take the screen down."""
-    if preferred:
-        return preferred
+    return pick_models(api_key, preferred)[0]
+
+
+def _list_flash(api_key):
     r = requests.get(f"{API}/models", headers={"x-goog-api-key": api_key},
                      params={"pageSize": 200}, timeout=20)
     if r.status_code != 200:
@@ -316,7 +374,7 @@ def pick_model(api_key, preferred=None):
             names.append((0 if mm.group(2) else 1, float(mm.group(1)), name))
     if not names:
         raise GeminiError(404, "No stable Gemini Flash model is available to this API key.")
-    return max(names)[2]
+    return [n for _, _, n in sorted(names, reverse=True)]
 
 
 # =============================================================================
@@ -419,3 +477,22 @@ def run_agent(engine, api_key, model, question, history=(), post=None):
                                            "output_tokens": {"total": tok_out}}]}
     return ("_Stopped after the maximum number of tool rounds without a final answer. "
             "Try a narrower question._"), trace
+
+
+def run_agent_any(engine, api_key, models, question, history=(), post=None, budget_s=70):
+    """run_agent on the first model that answers. The tools only read, so
+    re-running a question on the next model is harmless. Returns
+    (text, trace, model). Raises the last GeminiError if every model fails."""
+    last = None
+    start = time.monotonic()
+    for model in models:
+        if last and time.monotonic() - start > budget_s:
+            break  # don't keep a visitor waiting through every model
+        try:
+            text, trace = run_agent(engine, api_key, model, question, history, post)
+            return text, trace, model
+        except GeminiError as e:
+            if e.status not in RETRYABLE:
+                raise
+            last = e
+    raise last or GeminiError(503, "No Gemini model is configured.")
